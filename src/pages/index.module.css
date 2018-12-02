@@ -1,0 +1,12 @@
+.post_list {
+  list-style: none;
+  margin: 2rem 0;
+}
+
+.post_title {
+  margin-bottom: 1rem;
+}
+
+.post_date {
+  color: #bbb;
+}

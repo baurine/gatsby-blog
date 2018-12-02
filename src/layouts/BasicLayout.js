@@ -17,7 +17,11 @@ const HeaderNav = ({ title }) => (
       <ListLink to="/">Home</ListLink>
       <ListLink to="/about/">About</ListLink>
       <li className={styles.nav_link}>
-        <a href="https://github.com/baurine" target="_blank">GitHub</a>
+        <a href="https://github.com/baurine"
+           target="_blank"
+           rel="noopener noreferrer">
+          GitHub
+        </a>
       </li>
     </ul>
   </header>
