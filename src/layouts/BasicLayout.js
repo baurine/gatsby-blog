@@ -1,17 +1,17 @@
 import React from 'react'
-import { Link } from "gatsby"
+import { Link, StaticQuery, graphql } from "gatsby"
 import styles from './BasicLayout.module.css'
 
-const ListLink = ({to, children}) => (
+const ListLink = ({ to, children }) => (
   <li className={styles.nav_link}>
     <Link to={to}>{children}</Link>
   </li>
 )
 
-const HeaderNav = () => (
+const HeaderNav = ({ title }) => (
   <header className={styles.nav_header}>
     <Link to="/">
-      <h3 className={styles.nav_header_heading}>Baurine's Blog</h3>
+      <h3 className={styles.nav_header_heading}>{title}</h3>
     </Link>
     <ul className={styles.nav_header_list}>
       <ListLink to="/">Home</ListLink>
@@ -20,9 +20,24 @@ const HeaderNav = () => (
   </header>
 )
 
-export default ({ children }) => (
+const Layout = ({ data, children }) => (
   <div className={styles.container}>
-    <HeaderNav/>
+    <HeaderNav title={data.site.siteMetadata.title}/>
     { children }
   </div>
+)
+
+export default ({ children }) => (
+  <StaticQuery
+    query={graphql`
+      query {
+        site {
+          siteMetadata {
+            title
+          }
+        }
+      }
+    `}
+    render={data => <Layout data={data}>{children}</Layout>}
+  />
 )
