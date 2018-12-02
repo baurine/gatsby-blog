@@ -16,6 +16,9 @@ const HeaderNav = ({ title }) => (
     <ul className={styles.nav_header_list}>
       <ListLink to="/">Home</ListLink>
       <ListLink to="/about/">About</ListLink>
+      <li className={styles.nav_link}>
+        <a href="https://github.com/baurine" target="_blank">GitHub</a>
+      </li>
     </ul>
   </header>
 )
