@@ -3,3 +3,21 @@
   margin: 0 auto;
   padding: 1.25rem 1rem;
 }
+
+.nav_header {
+  margin-bottom: 1.5rem;
+}
+
+.nav_header_list {
+  list-style: none;
+  float: right;
+}
+
+.nav_header_heading {
+  display: inline;
+}
+
+.nav_link {
+  display: inline-block;
+  margin-right: 1rem;
+}
