@@ -1,5 +1,5 @@
 import React from "react"
-import { graphql } from 'gatsby'
+import { graphql, Link } from 'gatsby'
 import BasicLayout from "../layouts/BasicLayout"
 import styles from './index.module.css'
 
@@ -9,14 +9,16 @@ export default ({ data }) =>
       {
         data.allMarkdownRemark.edges.map(({ node }) => (
           <li key={node.id}>
-            <p
-              className={styles.post_title}>
-              {node.frontmatter.title}{" "}
-              <span
-                className={styles.post_date}>
-                — {node.frontmatter.date}
-              </span>
-            </p>
+            <Link to={node.fields.slug}
+                  style={{textDecoration: 'none', color: 'inherit', fontWeight: 'normal'}}>
+              <p className={styles.post_title}>
+                {node.frontmatter.title}{" "}
+                <span
+                  className={styles.post_date}>
+                  — {node.frontmatter.date}
+                </span>
+              </p>
+            </Link>
           </li>
         ))
       }
@@ -34,6 +36,9 @@ export const query = graphql`
           frontmatter {
             title
             date(formatString: "MMMM DD, YYYY")
+          }
+          fields {
+            slug
           }
         }
       }
