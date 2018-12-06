@@ -57,5 +57,6 @@ module.exports = {
       },
     },
     `gatsby-plugin-sharp`, // depedent by `gatsby-remark-imags`
+    `gatsby-plugin-sass`
   ],
 }
