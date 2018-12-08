@@ -8,4 +8,4 @@ tags: [ubi]
 
 当初是用 doc 写的，内容挺多，而且有些文字进行了着色，就懒得再用 markdown 重写了。
 
-[挂载 ubi 镜像及反向制作.doc](/assets/docs/挂载 ubi 镜像及反向制作.doc)
+[挂载 ubi 镜像及反向制作.doc](./挂载 ubi 镜像及反向制作.doc)
