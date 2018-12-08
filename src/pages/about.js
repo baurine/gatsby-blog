@@ -3,5 +3,8 @@ import BasicLayout from "../layouts/BasicLayout"
 
 export default () => 
   <BasicLayout>
-    <div>About</div>
+    <ul>
+      <li>Keep Learning, Keep Coding</li>
+      <li>Enjoy Life, Work Hard</li>
+    </ul>
   </BasicLayout>
