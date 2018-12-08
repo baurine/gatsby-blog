@@ -1,4 +1,5 @@
 import React from 'react'
+import Helmet from 'react-helmet'
 import { Link, StaticQuery, graphql } from "gatsby"
 import Footer from '../components/Footer'
 import styles from './BasicLayout.module.scss'
@@ -30,6 +31,10 @@ const HeaderNav = ({ title }) => (
 
 const Layout = ({ data, children }) => (
   <div className={styles.container}>
+    <Helmet>
+      <meta charSet="utf-8"/>
+      <title>{data.site.siteMetadata.title}</title>
+    </Helmet>
     <HeaderNav title={data.site.siteMetadata.title}/>
     <div className={styles.content_container}>
       { children }
