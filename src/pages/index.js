@@ -7,19 +7,23 @@ export default ({ data }) =>
   <BasicLayout>
     <ul className={styles.post_list}>
       {
-        data.allMarkdownRemark.edges.map(({ node }) => (
-          <li key={node.id}>
-            <Link to={node.fields.slug}
-                  style={{textDecoration: 'none', color: 'inherit', fontWeight: 'normal'}}>
-              <p className={styles.post_title}>
-                {node.frontmatter.title}{" "}
-                <span
-                  className={styles.post_date}>
-                  — {node.frontmatter.date}
-                </span>
-              </p>
-            </Link>
-          </li>
+        data.allMarkdownRemark.edges
+          .filter(({ node }) => node.frontmatter.published !== false)
+          .map(({ node }) => (
+            <li key={node.id}>
+              <Link to={node.fields.slug}
+                    style={{textDecoration: 'none',
+                            color: 'inherit',
+                            fontWeight: 'normal'}}>
+                <p className={styles.post_title}>
+                  {node.frontmatter.title}{" "}
+                  <span
+                    className={styles.post_date}>
+                    — {node.frontmatter.date}
+                  </span>
+                </p>
+              </Link>
+            </li>
         ))
       }
     </ul>
@@ -36,6 +40,7 @@ export const query = graphql`
           frontmatter {
             title
             date(formatString: "MMMM DD, YYYY")
+            published
           }
           fields {
             slug

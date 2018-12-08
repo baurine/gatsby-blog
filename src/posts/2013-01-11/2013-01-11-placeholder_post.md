@@ -2,6 +2,7 @@
 title: Placeholder Post
 date: "2013-01-11"
 published: false
+tags: []
 ---
 
 Scribble is a [Jekyll](http://jekyllrb.com/) theme, created by [Mu-An](http://muan.co/) and modify by [Rei](http://chloerei.com/).
