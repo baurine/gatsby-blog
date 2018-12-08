@@ -1,7 +1,7 @@
 import React from "react"
 import { graphql, Link } from 'gatsby'
 import BasicLayout from "../layouts/BasicLayout"
-import styles from './index.module.css'
+import styles from './index.module.scss'
 
 export default ({ data }) => 
   <BasicLayout>

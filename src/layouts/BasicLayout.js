@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link, StaticQuery, graphql } from "gatsby"
-import styles from './BasicLayout.module.css'
+import Footer from '../components/Footer'
+import styles from './BasicLayout.module.scss'
 
 const ListLink = ({ to, children }) => (
   <li className={styles.nav_link}>
@@ -30,7 +31,10 @@ const HeaderNav = ({ title }) => (
 const Layout = ({ data, children }) => (
   <div className={styles.container}>
     <HeaderNav title={data.site.siteMetadata.title}/>
-    { children }
+    <div className={styles.content_container}>
+      { children }
+    </div>
+    <Footer/>
   </div>
 )
 

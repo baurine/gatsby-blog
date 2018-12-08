@@ -1,11 +1,11 @@
 .container {
   max-width: 700px;
   margin: 0 auto;
-  padding: 1.25rem 1rem;
+  padding: 2rem 1rem;
 }
 
 .nav_header {
-  margin-bottom: 1.5rem;
+  padding: 0;
 }
 
 .nav_header_list {
@@ -20,4 +20,8 @@
 .nav_link {
   display: inline-block;
   margin-right: 1rem;
+}
+
+.content_container {
+  margin-top: 2rem;
 }

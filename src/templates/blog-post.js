@@ -3,18 +3,19 @@ import BasicLayout from "../layouts/BasicLayout"
 import { graphql } from "gatsby"
 
 import '../styles/main.scss'
+import styles from './blog-post.module.scss'
 
 export default ({ data }) => {
   const post = data.markdownRemark
   return (
     <BasicLayout>
-      <div style={{marginTop: '4rem'}}>
+      <div className={styles.post_head}>
         <h1>{post.frontmatter.title}</h1>
         <span>{post.frontmatter.date}</span>
-        <br/>
-        <br/>
-        <div dangerouslySetInnerHTML={{__html: post.html}}/>
       </div>
+      <hr/>
+      <div dangerouslySetInnerHTML={{__html: post.html}}/>
+      <hr/>
     </BasicLayout>
   )
 }
