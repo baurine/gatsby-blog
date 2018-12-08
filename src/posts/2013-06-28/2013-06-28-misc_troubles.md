@@ -7,7 +7,7 @@ tags: [ultraiso, TtaoHoverTimer, jekyll, failed to build gem native extension]
 ### 一
 为了用 U 盘安装 Ubuntu 13.04，按照网上教程下载了 UltraISO，将 Ubuntu 13.04 的 iso 镜像烧写到 U 盘上，但是每次烧写到中途，就会弹出出错的警告框 (以上操作在 Win8 64 上进行)。
 
-![出错警告框]({{site.img_url}}/ultraiso.png)
+![出错警告框](./ultraiso.png)
 
 真是郁闷坏了。于是用关键词「TtaoHoverTimer」进行 google，看来有不少受害者，但是没有一篇确切的文章提出真正的解决办法，都是在论坛发贴子问。茫茫帖子中，偶见就只有那么一个人回帖说「要不试试用管理员运行 UltraISO」，于是乎马上试了一下，果然是这个原因。哎，早该想到了，警告框里已经提示了拒绝访问，说明很有可能是权限的问题。但是很奇怪，网上的教程几乎没有提到要用管理员权限来操作这个要点。我想要么这些内容是拷贝来拷贝去的，要么他们都是在 XP 上操作的。
 

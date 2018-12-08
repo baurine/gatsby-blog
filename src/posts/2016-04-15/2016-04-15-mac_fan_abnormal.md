@@ -8,4 +8,4 @@ tags: []
 
 直到最近，我突然发现「Activity Manager」里有一栏「Energy」，从名字上来看，是指各个进程占用能量的情况，于是尝试把占用能量最高的应用关掉 (令我惊讶的是，Safari 经常是占用能量最高的应用，超过 Android Studio)，果然一会后世界又清净了。
 
-![mac_activity_manager_energy]({{site.img_url}}/mac_activity_manager_energy.png)
+![mac_activity_manager_energy](./mac_activity_manager_energy.png)

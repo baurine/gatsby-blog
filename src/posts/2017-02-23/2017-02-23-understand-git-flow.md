@@ -21,15 +21,15 @@ tags: [gitflow]
 
 自己设计的简化流程：
 
-![]({{site.img_url}}/client_dev_git_flow_design.png)
+![](./client_dev_git_flow_design.png)
 
 正宗 Gitflow：
 
-![]({{site.img_url}}/git_flow.png)
+![](./git_flow.png)
 
 我司：
 
-![]({{site.img_url}}/ekohe_git_workflow.png)
+![](./ekohe_git_workflow.png)
 
 ### 对 GitFlow 的重新理解 
 

@@ -8,13 +8,13 @@ tags: [git, author]
 
 起因是这样的，在某天提交代码的过程中，发现有几次历史提交的 author 信息不对，可能是 user.name 和 user.email 的信息被修改了，就像下面这样：
 
-![git_update_author_1]({{site.img_url}}/git_update_author_1.png)
+![git_update_author_1](./git_update_author_1.png)
 
 其实也没有大不了，但对于像我这种有轻微强迫症的人来说，这是不可接受的。
 
 通过网上查询，综合了各种方法，最终实现了预期中的效果，如下所示：
 
-![git_update_author_2]({{site.img_url}}/git_update_author_2.png)
+![git_update_author_2](./git_update_author_2.png)
 
 #### 简要步骤
 ------------------

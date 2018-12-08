@@ -91,7 +91,7 @@ protected void onDestroy() {
 
 调试后整理 Activity 的 onNewIntent 调用时机如下图所示。
 
-![git_update_author_1]({{site.img_url}}/activity_onnewintent.png)
+![git_update_author_1](./activity_onnewintent.png)
 
 当 activity (假设为 A) 的 launchMode 为 singleTop 且 A 的实例已经在 task 栈顶，或者 launchMode 为 singleTask 且 A 的实例已在 task 栈里 (无论是栈顶还是栈中)，再次启动 activity A 时，便不会调用 onCreate() 去产生新的实例，而是调用 onNewIntent() 并重用 task 栈里的 A 实例。
 
@@ -103,6 +103,6 @@ protected void onDestroy() {
 
 另外，网上的文章在谈及 activity 的生命周期时，往往只说明单个 activity 的生命周期，而不说明从一个 activity 进入到另一个 activity 时，或者从一个 activity 返回到上一个 activity 时这些函数的调用顺序。现整理如下图所示：
 
-![git_update_author_1]({{site.img_url}}/android_activity_lifecycle.png)
+![git_update_author_1](./android_activity_lifecycle.png)
 
 可见原则是优先把目标 activity 尽快展示出来，等目标 activity 展现出来后，再在后台执行自身的 onStop，或者以及 onDestroy。而并不是先执行完自己的 onStop/onDestroy 再去执行目标 activity 的 onCreate/onRestart。

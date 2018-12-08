@@ -6,7 +6,7 @@ tags: [android, view touch event dispatch]
 
 2015 年 9 月份的时候把 view 的事件分发机制研究得觉得自己掌握得很好了，没有记录到笔记上，结果最近要修改第三方自定义控件时，又觉得有点迷糊了，索性重新再学习了一遍，画了一张图来加深自己的理解：
 
-![android_view_touch_event]({{site.img_url}}/android_view_touch_event.png)
+![android_view_touch_event](./android_view_touch_event.png)
 
 其它一些要点 (下文中 View 和 ViewGroup 是分开描述的，View 就是 View，并不指代 ViewGroup)：
 

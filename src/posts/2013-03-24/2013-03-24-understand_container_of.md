@@ -62,7 +62,7 @@ ubuntu 12.04 中这个结构定义在 /usr/src/linux-headers-3.2.0-24-generic/in
 
 上述一段简短的代码，快速地生成了一个可供自己使用的双向循环链表，其结构如下图所示：
 
-![container_of.png]({{site.img_url}}/container_of.png)
+![container_of.png](./container_of.png)
 
 从图中可以看到，每个节点中的 next 和 pre 指针指向的都是另一个结点中的 node 成员的地址，而不是整个节点的首地址，所以，问题就来了，我们要访问节点中的其它成员怎么办？那我们就必须通过 node 成员的地址，获取它所在的节点的首地址。方法很简单，用 node 成员的地址减去它相对首地址的偏移量即可，假设某个节点的 node 成员的地址是 ptr，偏移量暂时先用 offset(node, struct book) 来表示，则公式如下：
 
