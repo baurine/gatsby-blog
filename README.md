@@ -2,13 +2,17 @@
 
 ## How to Run
 
+install dependencies:
+
+    $ yarn
+
 develop:
 
-    $ gatsby develop
+    $ yarn start  // aka `gatsby develop`
 
 build:
 
-    $ gatsby build
+    $ yarn build  // aka `gatsby build`
 
 when install npm, use `yarn add` instead of `npm install`.
 
