@@ -3,7 +3,6 @@ import Helmet from 'react-helmet'
 import { graphql } from "gatsby"
 import BasicLayout from "../layouts/BasicLayout"
 
-import '../styles/main.scss'
 import styles from './blog-post.module.scss'
 
 export default ({ data }) => {
