@@ -1,13 +1,6 @@
 import Typography from "typography"
-import lawtonTheme from 'typography-theme-lawton'
-// import bootstrapTheme from "typography-theme-bootstrap"
-// import fairyGatesTheme from 'typography-theme-fairy-gates'
+import theme from 'typography-theme-github'
 
-// const typography = new Typography({
-//   baseFontSize: "18px"
-// })
-const typography = new Typography(lawtonTheme)
-// const typography = new Typography(bootstrapTheme)
-// const typography = new Typography(fairyGatesTheme)
+const typography = new Typography(theme)
 
 export default typography
