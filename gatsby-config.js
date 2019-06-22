@@ -1,21 +1,21 @@
 module.exports = {
   siteMetadata: {
-    title: `Baurine's Blog`,
+    title: `Baurine's Blog`
   },
   plugins: [
     {
       resolve: `gatsby-source-filesystem`,
       options: {
         name: `posts`,
-        path: `${__dirname}/src/posts`,
-      },
+        path: `${__dirname}/src/posts`
+      }
     },
     // `gatsby-transformer-remark`,
     {
       resolve: `gatsby-transformer-remark`,
       options: {
         plugins: [
-          "gatsby-remark-copy-linked-files",
+          'gatsby-remark-copy-linked-files',
           // {
           //   resolve: "gatsby-remark-copy-linked-files",
           //   options: {
@@ -36,28 +36,35 @@ module.exports = {
               // It's important to specify the maxWidth (in pixels) of
               // the content container as this plugin uses this as the
               // base for generating different widths of each image.
-              maxWidth: 590,
-            },
+              maxWidth: 590
+            }
           },
           {
             resolve: `gatsby-remark-responsive-iframe`,
             options: {
-              wrapperStyle: `margin-bottom: 1.0725rem`,
-            },
+              wrapperStyle: `margin-bottom: 1.0725rem`
+            }
           },
           `gatsby-remark-prismjs`,
           `gatsby-remark-autolink-headers`
-        ],
-      },
+        ]
+      }
     },
     {
       resolve: `gatsby-plugin-typography`,
       options: {
-        pathToConfigModule: `src/utils/typography.js`,
-      },
+        pathToConfigModule: `src/utils/typography.js`
+      }
     },
     `gatsby-plugin-sharp`, // depedent by `gatsby-remark-imags`
     `gatsby-plugin-sass`,
-    `gatsby-plugin-react-helmet`
-  ],
+    `gatsby-plugin-react-helmet`,
+    {
+      // https://www.gatsbyjs.org/docs/adding-analytics/
+      resolve: `gatsby-plugin-google-analytics`,
+      options: {
+        trackingId: 'UA-88865957-2'
+      }
+    }
+  ]
 }
