@@ -1,6 +1,6 @@
 ---
-title: "Migrate blog site to Gatsby"
-date: "2018-12-08"
+title: 'Migrate blog site to Gatsby'
+date: '2018-12-08'
 tags: [gatsby]
 ---
 
@@ -11,6 +11,8 @@ tags: [gatsby]
 Gatsby 的 [tutorial](https://www.gatsbyjs.org/tutorial/) 写得很详细，照着一步一步操作，很快就能把一个博客网站搭建起来，原本我是想把新的网站也放到 Github Pages 上，覆盖用 Jekyll 搭建的网站，但是发现一个问题，因为之前我把一些博客文章的链接分享了出去，因此我要保证新的网站生成的文章链接，文章内的图片等链接也和旧的网站保持一致，但是做不到。
 
 比如当前文章 `2018-12-08-migrate-to-gatsby.md` 在 Jekyll 下生成的路由是 `/2018/12/08/migrate-to-gatsby.html`，而在 Gatsby 下，我最多能保证生成 `/2018/12/08/migrate-to-gatsby/`，而这两者实际是不一样的地址。
+
+(2019/07/29 update: 上面这句话后来发现并不正确，reactjs 的官网也是用 gatsby 构建的，但它生成的网页地址却是 .html 后缀的，如 https://reactjs.org/tutorial/tutorial.html ，查看源码，发现它把 tutorial/tutorial.md 的 permalink 设置为了 tutorial/tutorial.html ，恍然大悟，我也可以在 onCreateNode 方法中将 slug 设置为 xxx.html ，待实验。)
 
 因此我决定把新的博客网站布署到其它地方，旧网站继续保持，以避免以前分享到外部的链接失效，以后新的博客文章可能只发表在新网站上，旧网站不再更新。
 
