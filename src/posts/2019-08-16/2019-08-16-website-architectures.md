@@ -32,6 +32,15 @@ SSR 不再成为前后端分离的痛点后，相比前后端一体的优点：
    - 对 UI 要求低 - 无脑上 Ant Design Pro (内置路由/dva/proxy/mock 等一条龙服务)
    - 对 UI 有要求，要有自己的 style - Create React App 或同类框架 (umi)
 
+配套的一些其它库：
+
+1. 语言 - TypeScript
+1. 路由 - next.js / ant design pro / umi 有自己的路由，gatsby 使用了 reach router，但使用 CRA 创建 SPA 的话我会推荐使用 react router (reach router 的 SEO 不行，出现问题 google 出来的结果好多是 react router 的页面)
+1. 状态管理 - dva (封装了 react router + redux-saga)
+1. CSS - next.js 使用了 styled-jsx，ant design pro 默认是 css modules，gatsby 教程中推荐使用 emotion ... 总之还是百花齐放，个人偏向 css modules
+1. lint + format - ESLint + Prettier
+1. UI Playground - Storybook
+
 下面做一些详解。
 
 ## 需要 SSR - Next.js
