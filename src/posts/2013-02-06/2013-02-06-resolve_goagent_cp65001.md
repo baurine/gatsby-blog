@@ -2,6 +2,7 @@
 title: "解决安装 GoAgent 时提示 \"unknown encoding: cp65001\" 的错误"
 date: "2013-02-06"
 tags: [goagent, cp65001]
+published: false
 ---
 
 在本人的 Windows 系统上运行 uploader.bat 往 GAE 上传 GoAgent 的代码时，一直提示

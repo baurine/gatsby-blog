@@ -1,5 +1,5 @@
 ---
-title: 'gatsby 是如何优化对 markdown 中图片的加载'
+title: 'Gatsby 是如何优化对 Markdown 中图片的加载'
 date: '2019-06-21'
 tags: [gatsby, responsive images]
 ---

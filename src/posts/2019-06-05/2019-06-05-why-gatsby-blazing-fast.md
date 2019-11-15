@@ -1,5 +1,5 @@
 ---
-title: "gatsby 是如何做到无刷新的页面跳转以及瞬间加载"
+title: "Gatsby 是如何做到无刷新的页面跳转以及瞬间加载"
 date: "2019-06-05"
 tags: [gatsby, prefetch]
 ---

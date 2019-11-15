@@ -2,6 +2,7 @@
 title: "修改博客主题适配 Jekyll 3.0"
 date: "2016-04-23"
 tags: [Github pages, Jekyll 3, Scribble]
+published: false
 ---
 
 今天折腾了一天，把原来用的博客主题 [Scribble](https://github.com/chloerei/scribble) 适配成可以在 Jekyll 3.0 下正常使用了。

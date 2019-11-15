@@ -2,6 +2,7 @@
 title: "疑难杂症系列"
 date: "2013-06-28"
 tags: [ultraiso, TtaoHoverTimer, jekyll, failed to build gem native extension]
+published: false
 ---
 
 ### 一
