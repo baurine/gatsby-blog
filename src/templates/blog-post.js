@@ -1,12 +1,13 @@
-import React from "react"
-import Helmet from 'react-helmet'
-import { graphql } from "gatsby"
-import BasicLayout from "../layouts/BasicLayout"
+import React from "react";
+import Helmet from "react-helmet";
+import { graphql } from "gatsby";
+import BasicLayout from "../layouts/BasicLayout";
 
-import styles from './blog-post.module.scss'
+import styles from "./blog-post.module.scss";
+import UtterancesComments from "../components/UtterancesComments";
 
 export default ({ data }) => {
-  const post = data.markdownRemark
+  const post = data.markdownRemark;
   return (
     <BasicLayout>
       <Helmet>
@@ -16,12 +17,14 @@ export default ({ data }) => {
         <h1>{post.frontmatter.title}</h1>
         <span>{post.frontmatter.date}</span>
       </div>
-      <hr/>
-      <div dangerouslySetInnerHTML={{__html: post.html}}/>
-      <hr/>
+      <hr />
+      <div dangerouslySetInnerHTML={{ __html: post.html }} />
+      <hr />
+
+      <UtterancesComments />
     </BasicLayout>
-  )
-}
+  );
+};
 
 export const query = graphql`
   query($slug: String!) {
@@ -33,4 +36,4 @@ export const query = graphql`
       }
     }
   }
-`
+`;
