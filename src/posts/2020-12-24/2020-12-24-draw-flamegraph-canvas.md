@@ -53,7 +53,7 @@ type Span = {
 }
 ```
 
-## 类似产品调研
+## 调研 - 类似产品
 
 类似这种能够收集 span 及把 span 之间的关系展现出来的产品有 jaeger，datadog，以及，我们最容易接触到 Chrome DevTool 中的 performance panel。
 
@@ -109,7 +109,7 @@ Chrome DevTool Performance Panel:
 
 ![42](https://user-images.githubusercontent.com/1284531/103148112-36cd7380-4797-11eb-8b57-167a4d706e3d.gif)
 
-## 分析 Datadog 如何绘制 Span
+## 分析 - Datadog 如何绘制 Span
 
 同于多线程的原因，所以 span 之间的关系可以如下：
 
