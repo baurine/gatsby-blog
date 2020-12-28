@@ -168,3 +168,294 @@ Chrome DevTool Performance Panel:
 1. 将数组转换成树结构
 1. 计算 span 的最大结束时间
 1. 计算 span 的 depth
+
+### 将数组转成树
+
+我们从 API 获取的是 span 的数组，比如：
+
+```json
+{
+  "trace_id": 5796316316865205225,
+  "span_sets": [
+    {
+      "node_type": "TiKV",
+      "spans": [
+        {
+          "span_id": 393276,
+          "parent_id": 393275,
+          "begin_unix_time_ns": 1607658272409814199,
+          "duration_ns": 302332,
+          "event": "Endpoint::parse_and_handle_unary_request"
+        },
+        {
+          "span_id": 917515,
+          "parent_id": 393278,
+          "begin_unix_time_ns": 1607658272410116531,
+          "duration_ns": 134483,
+          "event": "RaftKv::async_snapshot"
+        },
+        {
+          "span_id": 917516,
+          "parent_id": 917515,
+          "begin_unix_time_ns": 1607658272410116531,
+          "duration_ns": 134483,
+          "event": "LocalReader::propose_raft_command"
+        },
+        ...
+}
+```
+
+我们首先要把数组重新组织成一棵树。我们给 span 加上 children, parent 等属性。
+
+因为 begin_unix_time_ns 是时间戳，是绝对时间，但其实在绘制的时候我们更需要的是相对时间，所以我们加上有关相对时间的属性。
+
+在绘制的时候需要知道 span 处于哪一层，用 depth 属性来标志。
+
+```ts
+interface TraceSpan {
+  span_id: number
+  parent_id: number
+
+  begin_unix_time_ns: number
+  duration_ns: number
+
+  event: string
+}
+
+interface IFullSpan extends TraceSpan {
+  node_type: string // 区分 span 对应的方法是在 tidb 还是 tikv 中执行的
+
+  children: IFullSpan[]
+  parent?: IFullSpan
+
+  relative_begin_unix_time_ns: number
+  relative_end_unix_time_ns: number
+  max_relative_end_time_ns: number // include children span
+
+  depth: number // which layer it should be drawed in, rootSpan is 0
+  max_child_depth: number
+}
+```
+
+我们先把 TraceSpan 转换成 IFullSpan：
+
+```ts
+const allSpans: IFullSpan[] = []
+source.span_sets?.forEach((spanSet) => {
+  spanSet.spans?.forEach((span) => {
+    allSpans.push({
+      ...span,
+
+      node_type: spanSet.node_type!,
+      children: [],
+
+      relative_begin_unix_time_ns: 0,
+      relative_end_unix_time_ns: 0,
+      max_relative_end_time_ns: 0,
+      depth: 0,
+      max_child_depth: 0,
+    })
+  })
+}
+```
+
+计算相对时间，要先找出 root span，root span 的 parent_id 为 0。将所有 span 的 begin_unix_time_ns 减去 root span 的 begin_unix_time_ns 就是各个 span 的相对开始时间。
+
+```ts
+const rootSpan = allSpans.find((span) => span.parent_id === 0)!
+const startTime = rootSpan.begin_unix_time_ns!
+allSpans.forEach((span) => {
+  span.relative_begin_unix_time_ns = span.begin_unix_time_ns! - startTime
+  span.relative_end_unix_time_ns =
+    span.relative_begin_unix_time_ns + span.duration_ns!
+  span.max_relative_end_time_ns = span.relative_end_unix_time_ns
+})
+```
+
+然后开始转换，最直接的方法是使用递归，但时间复杂度是 O(n^2)。像下面这样：
+
+```ts
+function findChildren(parentSpan: IFullSpan, allSpans: IFullSpan[]) {
+  parentSpan.children = allSpans.filter(
+    (span) => span.parent_id === parentSpan.span_id
+  )
+  parentSpan.children.forEach((child) => {
+    child.parent = parentSpan
+    findChildren(child, allSpans)
+  })
+}
+
+findChildren(rootSpan, allSpans)
+```
+
+为了提高性能，我们可以先把数组转换成 map，这样时间复杂度可以降低到 O(n)，像下面这样。同时，因为在上面我们得出结论，对某个 span 的子 span 进行绘制了，要按开始时间排序进行绘制，因为我们对每个 span 的 children 进行排序。
+
+```ts
+export type FullSpanMap = Record<string, IFullSpan>
+
+function buildTree(allSpans: IFullSpan[]): FullSpanMap {
+  // convert arr to map
+  let spansObj = allSpans.reduce((accu, cur) => {
+    accu[cur.span_id!] = cur
+    return accu
+  }, {} as FullSpanMap)
+
+  // set children and parent
+  Object.values(spansObj).forEach((span) => {
+    const parent = spansObj[span.parent_id!]
+    span.parent = parent
+    // the root span has no parent
+    if (parent) {
+      parent.children.push(span)
+    }
+  })
+
+  // sort children
+  Object.values(spansObj).forEach((span) => {
+    span.children.sort((a, b) => {
+      let delta = a.relative_begin_unix_time_ns - b.relative_begin_unix_time_ns
+      if (delta === 0) {
+        // make the span with longer duration in the front when they have the same begin time
+        // so we can draw the span with shorter duration first
+        // to make them closer to the parent span
+        delta = b.duration_ns! - a.duration_ns!
+      }
+      return delta
+    })
+  })
+  return spansObj
+}
+```
+
+### 计算 span 的最大结束时间
+
+由上面得知，一个 span 的子 span 的结束时间可能大于该 span 自身的结束时间。
+
+![image](https://user-images.githubusercontent.com/1284531/103148498-451d8e80-479b-11eb-80c2-803cb6bbc320.png)
+
+在比较两个兄弟 span 之间是否会产生重叠时，我们不能只使用该 span 自身的结束时间，而是要取该 span 自身及所有后代 span 中的结束时间中的最大值。
+
+像下面这样：
+
+![image](https://user-images.githubusercontent.com/1284531/103200847-614f3600-4929-11eb-8f73-ce0cd9ebcf7c.png)
+
+a span 的子 span 为 b1 和 b2，b1 的子 span 为 d1，b2 的子 span 为 c1。虽然 b2 和 b1 没有重叠，但 c1 的结束时间大于了 b1 和 d1 的结束时间，如果将 b1 和 b2 绘制在同一层级，那 c1 和 d1 会产生重叠。(但即使没有 d1，我们也不应该将 b1 和 b2 绘制在同一层级)。
+
+因此，我们要取 span 及子代中所有结束时间中的最大值与前一个兄弟 span 的起始时间进行比较。
+
+可以采用从顶层到底层的计算方法，从最顶层的根 span 开始，计算它的 children span 的最大结束时间，再和自己的结束时间取最大值。
+
+```ts
+function calcMaxEndTime(span: IFullSpan) {
+  // return condition
+  if (span.children.length === 0) {
+    span.max_end_time_ns = span.end_unix_time_ns
+    return span.end_unix_time_ns
+  }
+
+  const childrenTime = span.children
+    .map((childSpan) => calcMaxEndTime(childSpan))
+    .concat(span.end_unix_time_ns)
+  const maxTime = Math.max(...childrenTime)
+  span.max_end_time_ns = maxTime
+  return maxTime
+}
+
+calcMaxEndTime(rootSpan)
+```
+
+也可以从底层到顶层的计算方法，从最底层的叶子 span 开始往上逐层比较。如果子 span 的结束时间大于父 span 的结束时间，就将父 span 的最大结束时间修改为子 span 的最大结束时间，否则保留不变。
+
+```ts
+function calcMaxEndTime(spansObj: FullSpanMap) {
+  Object.values(spansObj)
+    .filter((span) => span.children.length === 0) // find leaf spans
+    .forEach(calcParentMaxEndTime)
+}
+
+// from bottom to top
+function calcParentMaxEndTime(span: IFullSpan) {
+  const parent = span.parent
+  if (parent === undefined) return
+
+  if (span.max_relative_end_time_ns > parent.max_relative_end_time_ns) {
+    parent.max_relative_end_time_ns = span.max_relative_end_time_ns
+  }
+  calcParentMaxEndTime(parent)
+}
+
+calcMaxEndTime(spansObj)
+```
+
+两者的复杂度应该是差不多的 (有待计算验证)，但后者更好理解一些。
+
+### 计算 span 的 depth
+
+由前面总结得到 depth 的计算规则：
+
+1. root span 绘制在第 0 层
+1. 绘制同属于相同的 parent span 的兄弟 span 时，先绘制开始时间大的 span
+1. 当 span 为兄弟 span 中开始时间最大的 span 时 (即最先绘制)，它的 depth 为父 span 的 depth + 1，即 span.depth = parentSpan.depth + 1
+1. 当 span 和前一个兄弟 span 不重叠时，则该 span 和前一个兄弟 span 绘制在同一层，即 span.depth = lastSpan.depth
+1. 当 span (假设为 span s1) 和前一个兄弟 span (假设为 span s2) 重叠时，这种情况就复杂了。这时又要分两种情况
+   1. 如果前一个兄弟 span s2 没有子 span，即它是叶子 span，这时要绘制的 span s1 可以在前一个兄弟 span s2 的下一层，即 span.depth = lastSpan.depth + 1
+   1. 如果前一个兄弟 span s2 有子 span，而且它的子 span 多达数层，比如 5 层，这时要绘制的 span s1 则需要处于 span s2 的最底层的子 span 的下下层，即 span.depth = lastSpan.max_child_depth + 2
+
+这里的难点就在于如何计算 `max_child_depth`，它其实是和 depth 相互影响的。即 depth 在某些情况下依赖 `max_child_depth` 计算得到，而 `max_child_depth` 则依赖 depth 计算得到。
+
+我选择的算法是先由顶到底，再由底到顶。具体来说，就是先从 root span 开始，它的初始 depth 和 `max_child_depth` 都是 0，往下逐层开始计算 depth，每计算一个 span，就逐层往上，用自己最新的 depth 更新父级的 `max_child_depth`。
+
+所以，最终实现如下所示：
+
+```ts
+// from top to bottom
+function calcDepth(parentSpan: IFullSpan) {
+  const childrenMaxIdx = parentSpan.children.length - 1
+  // keep the same logic as datadog
+  // compare the spans from right to left
+  for (let i = childrenMaxIdx; i >= 0; i--) {
+    const curSpan = parentSpan.children[i]
+
+    if (i === childrenMaxIdx) {
+      curSpan.depth = parentSpan.depth + 1
+    } else {
+      const lastSpan = parentSpan.children[i + 1]
+      if (
+        curSpan.max_relative_end_time_ns >
+          lastSpan.relative_begin_unix_time_ns ||
+        curSpan.relative_begin_unix_time_ns ===
+          lastSpan.relative_begin_unix_time_ns
+      ) {
+        if (lastSpan.max_child_depth === lastSpan.depth) {
+          // lastSpan has no children
+          curSpan.depth = lastSpan.max_child_depth + 1
+        } else {
+          // keep the same logic as datadog
+          // add a more empty layer
+          curSpan.depth = lastSpan.max_child_depth + 2
+        }
+      } else {
+        curSpan.depth = parentSpan.depth + 1
+        // equal
+        // curSpan.depth = lastSpan.depth
+      }
+    }
+    curSpan.max_child_depth = curSpan.depth
+    updateParentChildDepth(curSpan)
+    calcDepth(curSpan)
+  }
+}
+
+// from bottom to top
+function updateParentChildDepth(span: IFullSpan) {
+  const parent = span.parent
+  if (parent === undefined) return
+
+  if (span.max_child_depth > parent.max_child_depth) {
+    parent.max_child_depth = span.max_child_depth
+    updateParentChildDepth(parent)
+  }
+}
+
+calcDepth(rootSpan)
+```
