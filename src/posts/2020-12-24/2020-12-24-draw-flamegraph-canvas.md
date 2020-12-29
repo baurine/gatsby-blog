@@ -942,8 +942,21 @@ onMouseUp = (event) => {
 
 1. 选中的区间范围内的 span
 1. 在 span 上显示文字，包括 span 的 event 和 duration time
-1. 点击的 span 显示额外的边框
+1. 为点击的 span 显示额外的边框
 1. 为 hover 的 span 显示 tooltip
+
+详细视图中的 span 跟交互重相关，每次交互都可能改变绘制的内容，所以无法使用离屏 canvas。
+
+因为 tooltip 是用 HTML DOM 实现的，只需要在鼠标移动时主动调用，因此我们的 draw() 函数定义如下：
+
+```ts
+draw() {
+  this.context.clearRect(0, 0, this.width, this.height)
+
+  this.drawFlameGraph() // 包括了显示文字的操作
+  this.drawClickedSpan()
+}
+```
 
 #### tooltip
 
@@ -951,4 +964,160 @@ onMouseUp = (event) => {
 
 一般来说，tooltip 用 HTML DOM 绘制会更方便和灵活，所以 tooltip 就不用 canvas 来绘制。
 
-tooltip 用一个 fixed 定位的 div，初始透明度为 0。当有 span hover 时，将透明度设为 0，并用 translate() 将它的坐标移到鼠标坐标附近。
+tooltip 用一个 fixed 定位的 div，初始透明度为 0。当有 span hover 时，将透明度设为 1.0，并用 translate() 将它的坐标移到鼠标坐标附近。
+
+```ts
+showTooltip(windowPos: Pos) {
+  if (this.tooltipDomElement === null) return
+
+  if (this.hoverSpan === null) {
+    this.tooltipDomElement.style.opacity = '0.0'
+  } else {
+    this.tooltipDomElement.style.opacity = '1.0'
+    this.tooltipDomElement.style.transform = `translate(${
+      windowPos.x + 8
+    }px, ${windowPos.y + 8}px)`
+    this.tooltipDomElement.innerHTML = `<span>${getValueFormat('ns')(
+      this.hoverSpan.duration_ns!,
+      2
+    )}</span>&nbsp;&nbsp;${this.hoverSpan.event!}`
+  }
+}
+```
+
+#### span 的绘制
+
+绘制方法和概览图是一样的，稍有不同的地方：
+
+1. 只绘制落在选择区间内 span
+1. hover 的 span 要用不同的样式区分，这里实际用了不同的透明度为区分。
+1. 要为 span 绘制文字
+
+在绘制文字时，我们还要根据 span 的绘制宽度还选择是显示所有文字内容，还是对它进行 truncate，只显示部分，变或是完全不显示，只能通过 hover 或点击还获知它的信息。
+
+Canvas 提供了 `context.measureText(text)` 来估算文字的大致长度。
+
+完整的实现：
+
+```ts
+drawFlameGraph() {
+  this.context.save()
+  this.drawSpan(this.flameGraph.rootSpan)
+  this.context.restore()
+}
+
+drawSpan(span: IFullSpan) {
+  const { start, end } = this.selectedTimeRange
+  const inside =
+    span.relative_end_unix_time_ns > start ||
+    span.relative_begin_unix_time_ns < end
+
+  // 只绘制区间范围内的 span
+  if (inside) {
+    // 对 hover 的 span 使用不同的透明度
+    if (span === this.hoverSpan) {
+      this.context.globalAlpha = 1.0
+    } else {
+      this.context.globalAlpha = 0.9
+    }
+    if (span.node_type === 'TiDB') {
+      this.context.fillStyle = '#aab254'
+    } else {
+      this.context.fillStyle = '#507359'
+    }
+    // 计算 x, y, width, height
+    let x = this.timeLenScale(span.relative_begin_unix_time_ns)
+    if (x < 0) {
+      x = 0
+    }
+    const y = span.depth * 20
+    let width = Math.max(
+      this.timeLenScale(span.relative_end_unix_time_ns) - x,
+      TimelineDetailChart.MIN_SPAN_WIDTH
+    )
+    if (x + width > this.width) {
+      width = this.width - x
+    }
+    const height = TimelineDetailChart.LAYER_HEIGHT - 1
+    // 绘制矩形
+    this.context.fillRect(x, y, width, height)
+
+    // 绘制和父 span 之间的竖线
+    const deltaDepth = span.depth - (span.parent?.depth || 0)
+    if (deltaDepth > 1) {
+      this.context.strokeStyle = this.context.fillStyle
+      this.context.lineWidth = 0.5
+      this.context.beginPath()
+      this.context.moveTo(x, y)
+      this.context.lineTo(
+        x,
+        y - (deltaDepth - 1) * TimelineDetailChart.LAYER_HEIGHT
+      )
+      this.context.stroke()
+    }
+
+    // 绘制文字
+    const durationStr = getValueFormat('ns')(span.duration_ns!, 2)
+    const fullStr = `${span.event!} ${durationStr}`
+    const fullStrWidth = this.context.measureText(fullStr).width
+    const eventStrWidth = this.context.measureText(span.event!).width
+    const singleCharWidth = this.context.measureText('n').width
+    this.context.textAlign = 'start'
+    this.context.textBaseline = 'middle'
+    this.context.fillStyle = 'white'
+    this.context.globalAlpha = 1.0
+    if (width >= fullStrWidth + 4) {
+      // 显示完整的信息，在左边显示 event，右边显示时间
+      this.context.fillText(span.event!, x + 2, y + 10)
+      this.context.textAlign = 'end'
+      this.context.fillText(durationStr, x + width - 2, y + 10)
+    } else if (width >= eventStrWidth + 2) {
+      // 只显示 event
+      this.context.fillText(span.event!, x + 2, y + 10)
+    } else {
+      // truncate event
+      const charCount = Math.floor((width - 10) / singleCharWidth)
+      if (charCount > 1) {
+        const str = `${span.event!.slice(0, charCount)}...`
+        this.context.fillText(str, x + 2, y + 10)
+      }
+    }
+  }
+
+  span.children.forEach((s) => this.drawSpan(s))
+}
+```
+
+#### 绘制点击的 span
+
+在点击的 span 边框显示额外的颜色加以区分。使用 strokeRect() 方法，具体实现略。
+
+## 概览视图和详细视图的联动
+
+即在概览图中修改选择区间时，同时会修改详细视图的区间，反之亦然。实现方法是相互注册监听器。
+
+```ts
+function setupCharts(flameGraph: IFlameGraph) {
+  //...
+
+  if (overviewChartRef.current) {
+    overviewChart.current = new TimelineOverviewChart(
+      overviewChartRef.current!,
+      flameGraph!
+    )
+    overviewChart.current.addTimeRangeListener((newTimeRange) => {
+      detailChart.current?.setTimeRange(newTimeRange)
+    })
+  }
+  if (detailChartRef.current) {
+    detailChart.current = new TimelineDetailChart(
+      detailChartRef.current!,
+      flameGraph
+    )
+    detailChart.current.addTimeRangeListener((newTimeRange) => {
+      overviewChart.current?.setTimeRange(newTimeRange)
+    })
+    //...
+  }
+}
+```
