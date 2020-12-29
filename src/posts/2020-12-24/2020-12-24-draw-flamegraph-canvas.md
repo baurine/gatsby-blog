@@ -262,7 +262,7 @@ source.span_sets?.forEach((spanSet) => {
 }
 ```
 
-计算相对时间，要先找出 root span，root span 的 parent_id 为 0。将每个 span 的 `begin_unix_time_ns` 减去 root span 的 `begin_unix_time_ns` 就是各个 span 的相对开始时间。
+计算相对时间，要先找出 root span，root span 的 `parent_id` 为 0。将每个 span 的 `begin_unix_time_ns` 减去 root span 的 `begin_unix_time_ns` 就是各个 span 的相对开始时间。
 
 ```ts
 const rootSpan = allSpans.find((span) => span.parent_id === 0)!
