@@ -141,7 +141,7 @@ Chrome DevTool Performance Panel:
 
    绘制完 c1 后，我们发现 c2 跟 c1 有重叠，为了不发生绘制上的重叠，我们只好把 c2 绘制在 c1 的下一层，而不是和 c1 同处于同一层。
 
-   此时，c1 和父 span 之间由于隔了一层，父子关系已经不再那么直观了，为了表明 c2 的父 span 是 p，于是在 c2 和 p 之间绘制一条细线。
+   此时，c2 和父 span 之间由于隔了一层，父子关系已经不再那么直观了，为了表明 c2 的父 span 是 p，于是在 c2 和 p 之间绘制一条细线。
 
    而假如我们先开始绘制 c2，再开始绘制 c1，则 c1 和 p 之间的细线就会和 c2 重叠，这样明显视觉效果上差一点。像下面这样：
 
@@ -149,7 +149,7 @@ Chrome DevTool Performance Panel:
 
    所以我们要先绘制开始时间大的 span。
 
-1. 兄弟 span 间有重叠，且 span 还有子 Span，如下图所示，p span 有 c1/c2 两个子 span，c1 span 还有子 span，c2 的结束时间大于 c1 的开始时间。
+1. 兄弟 span 间有重叠，且 span 还有子 span，如下图所示，p span 有 c1/c2 两个子 span，c1 span 还有子 span，c2 的结束时间大于 c1 的开始时间。
 
    ![image](https://user-images.githubusercontent.com/1284531/103149260-d80df700-47a2-11eb-9047-2d199f7950cc.png)
 
@@ -207,21 +207,24 @@ Chrome DevTool Performance Panel:
 
 我们首先要把数组重新组织成一棵树。我们给 span 加上 children, parent 等属性。
 
-因为 begin_unix_time_ns 是时间戳，是绝对时间，但其实在绘制的时候我们更需要的是相对时间，所以我们加上有关相对时间的属性。
+因为 `begin_unix_time_ns` 是时间戳，是绝对时间，但其实在绘制的时候我们更需要的是相对时间，所以我们加上有关相对时间的属性。
 
 在绘制的时候需要知道 span 处于哪一层，用 depth 属性来标志。
 
 ```ts
+// 这个类型声明是由代码生成器 (openapi-generator) 根据后端的 model 自动生成的
+// 默认所有属性都是可选的 (虽然实际情况它们都是有值的)
 interface TraceSpan {
-  span_id: number
-  parent_id: number
+  span_id?: number
+  parent_id?: number
 
-  begin_unix_time_ns: number
-  duration_ns: number
+  begin_unix_time_ns?: number
+  duration_ns?: number
 
-  event: string
+  event?: string
 }
 
+// 这是我们自己扩展的类型声明
 interface IFullSpan extends TraceSpan {
   node_type: string // 区分 span 对应的方法是在 tidb 还是 tikv 中执行的
 
@@ -259,7 +262,7 @@ source.span_sets?.forEach((spanSet) => {
 }
 ```
 
-计算相对时间，要先找出 root span，root span 的 parent_id 为 0。将每个 span 的 begin_unix_time_ns 减去 root span 的 begin_unix_time_ns 就是各个 span 的相对开始时间。
+计算相对时间，要先找出 root span，root span 的 parent_id 为 0。将每个 span 的 `begin_unix_time_ns` 减去 root span 的 `begin_unix_time_ns` 就是各个 span 的相对开始时间。
 
 ```ts
 const rootSpan = allSpans.find((span) => span.parent_id === 0)!
@@ -490,11 +493,12 @@ SVG 适用于展示型图表，少量交互；Canvas 适用于绘制量比较大
 
 ### 准备工作
 
-在绘制之前，我们先做一些准备工作，或者说先解决一些坑。
+在绘制之前，我们先做一些准备工作及解决一些坑。
 
 1. 比例尺
 1. blurry 问题
 1. 时间转换
+1. 坐标转换
 
 #### 1. 比例尺
 
@@ -554,12 +558,26 @@ fixPixelRatio() {
 
 #### 3. 时间转换
 
-span 里的各种时间默认都是以 ns 为单位的，这个数比较大，展现的时候我们需要灵活地转换成易阅读的数值，比如将 "13387520 ns" 转换成 "13.39 ms"，将 "13885 ns" 转换成 "13.89 µs"。我们从 grafana 里抽出了相关的实现，使用方法如下：
+span 里的各种时间默认都是以 ns 为单位的，这个数比较大，不易阅读，展现的时候我们需要转换成更易阅读的数值，比如将 "13387520 ns" 转换成 "13.39 ms"，将 "13885 ns" 转换成 "13.89 µs"。我们从 grafana 里抽取了相关的实现，使用方法如下：
 
 ```ts
 import { getValueFormat } from '@baurine/grafana-value-formats'
 
 getValueFormat('ns')(13387520, 2) // 得到 "13.39 ms"
+```
+
+#### 4. 坐标转换
+
+在处理各种鼠标事件时，我们从鼠标 event 中拿到的坐标是相对于 window 的坐标值，但我们实际需要的是相对于 canvas 画布原点的相对坐标，因为这里要对鼠标的坐标做一个转换。
+
+```ts
+windowToCanvasLoc(windowX: number, windowY: number) {
+  const canvasBox = this.context.canvas.getBoundingClientRect()
+  return {
+    x: windowX - canvasBox.left,
+    y: windowY - canvasBox.top,
+  }
+}
 ```
 
 ### 绘制内容
@@ -576,7 +594,7 @@ getValueFormat('ns')(13387520, 2) // 得到 "13.39 ms"
 
 (后三者的绘制依赖交互操作)
 
-因此，定义 draw() 函数：
+因此，定义 draw() 函数如下所示：
 
 ```ts
 draw() {
@@ -665,6 +683,7 @@ drawSpan(span: IFullSpan, ctx: CanvasRenderingContext2D) {
     ctx.stroke()
   }
 
+  // 继续绘制子 span
   span.children.forEach((s) => this.drawSpan(s, ctx))
 }
 
@@ -697,7 +716,7 @@ drawFlameGraph() {
 
 我们用 `this.curWindow` 成员变量来定义当前的选择区间，而上述交互的最终结果只是来修改 `this.curWindow`，并触发重绘。
 
-绘制选中的区间时，我们只需要 `this.curWindow` 即可。
+绘制选中的区间时，我们只需要 `this.curWindow` 这个值即可。
 
 为了凸显选中的区间，我们将未选中的区间用半透明灰色覆盖。透明度用 globalAlpha 来设置。
 
