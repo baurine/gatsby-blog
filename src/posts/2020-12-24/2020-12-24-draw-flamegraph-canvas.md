@@ -27,7 +27,7 @@ PR 链接：
 
 - [全链路追踪需求分析](https://docs.google.com/document/d/1h-dythyqMzA3GebgPv3EsQdwJp_F6dzgG-enM0jgZ6Q/edit#heading=h.mwwetimxrl55)
 
-总的来说，是为了分析执行一条 SQL 语句在不同阶段的耗时情况，我们在 TiKV 和 TiDB 中实现了 tracing 机制，可以收集到执行一条 SQL 过程中的调用堆栈及各方法的耗时，最后我们在前端把它们像火焰图那样可视化出来，以便更方便地定位问题。
+总的来说，是为了分析执行一条 SQL 语句在不同阶段的耗时情况，我们在 TiKV 和 TiDB 中实现了 tracing 机制，可以收集到执行一条 SQL 过程中的调用堆栈及各方法的耗时，最后我们在前端把它们像火焰图那样展现，以方便定位问题。
 
 ## 数据结构
 
@@ -72,7 +72,7 @@ Chrome DevTool Performance Panel:
 分析：
 
 - Jaeger
-  - 有一个概览视图和一个详细视图
+  - 有概览视图和详细视图
   - 支持的交互太少，不支持滚轮放大缩小，不支持拖拽
   - 支持选择区间
   - 一个 span 就要占据独立的一行，不能直观地反应同属于一个 parent 的兄弟 span 之间的关系
@@ -90,10 +90,10 @@ Chrome DevTool Performance Panel:
 综合以上，我们选择的实现：
 
 - 有概览图和详细视图 (Jaeger / Chrome)
-- 像 Datadog 那样绘制 Span (Datadog)
+- 像 Datadog 那样绘制 span (Datadog)
 - 支持 Chrome DevTool 中的所有交互
 
-几乎就是 Chrome DevTool 的交互，概览+详细视图，以及 Datadog 的 Span 绘制。
+几乎就是 Chrome DevTool 的交互，概览+详细视图，以及 Datadog 的 span 绘制。
 
 最终实现效果：
 
@@ -109,31 +109,31 @@ Chrome DevTool Performance Panel:
 
 ![42](https://user-images.githubusercontent.com/1284531/103148112-36cd7380-4797-11eb-8b57-167a4d706e3d.gif)
 
-## 分析 - Datadog 如何绘制 Span
+## 分析 - Datadog 如何绘制 span
 
-同于多线程的原因，所以 span 之间的关系可以如下：
+由于多线程的原因，所以 span 之间的关系可以如下：
 
-1. 子 Span 可能在父 Span 结束后才结束
+1. 子 span 可能在父 span 结束后才结束
 
    ![image](https://user-images.githubusercontent.com/1284531/103148498-451d8e80-479b-11eb-80c2-803cb6bbc320.png)
 
-1. 子 Span 可能在父 Span 结束后才开始 (这个是怎么触发的呢？延时子线程？)
+1. 子 span 可能在父 span 结束后才开始 (这个是怎么触发的呢？延时子线程？)
 
    ![image](https://user-images.githubusercontent.com/1284531/103148525-9168ce80-479b-11eb-8e11-ecd686f8cd5d.png)
 
-1. 同属于一个 Parent 的兄弟 Span 间可能重叠
+1. 同属于一个 Parent 的兄弟 span 间可能重叠
 
    ![image](https://user-images.githubusercontent.com/1284531/103148570-181dab80-479c-11eb-8ea4-5c9b1b6f04f8.png)
 
-来看一下 Datadog 是如何绘制各种情况的 Span 的。
+来看一下 Datadog 是如何绘制各种情况的 span 的。
 
-1. 兄弟 Span 间没有重叠。如下图所示，parent span 有 c1/c2/c3 三个子 span。
+1. 兄弟 span 间没有重叠。如下图所示，parent span 有 c1/c2/c3 三个子 span。
 
    ![image](https://user-images.githubusercontent.com/1284531/103148759-105f0680-479e-11eb-925d-034cef77e2fa.png)
 
-   不需要特殊处理，只需要把子 Span 绘制在父 Span 的下一层即可。
+   不需要特殊处理，只需要把子 span 绘制在父 span 的下一层即可。
 
-1. 兄弟 Span 间有重叠，且 Span 没有子 Span，如下图所示，p span 有 c1/c2 两个子 span，且 c2 的结束时间大于 c1 的开始时间。
+1. 兄弟 span 间有重叠，且 span 没有子 Span，如下图所示，p span 有 c1/c2 两个子 span，且 c2 的结束时间大于 c1 的开始时间。
 
    ![image](https://user-images.githubusercontent.com/1284531/103148831-cfb3bd00-479e-11eb-9efd-89e6bc2bac89.png)
 
@@ -143,13 +143,13 @@ Chrome DevTool Performance Panel:
 
    此时，c1 和父 span 之间由于隔了一层，父子关系已经不再那么直观了，为了表明 c2 的父 span 是 p，于是在 c2 和 p 之间绘制一条细线。
 
-   而假如我们先开始绘制 c2，再开始绘制 c1，则 c1 和 p 之间的细线就会和 c2 重叠，too bad。像下面这样：
+   而假如我们先开始绘制 c2，再开始绘制 c1，则 c1 和 p 之间的细线就会和 c2 重叠，不好。像下面这样：
 
    ![image](https://user-images.githubusercontent.com/1284531/103149094-59648a00-47a1-11eb-8ec6-e08945e1faea.png)
 
    所以我们要先绘制开始时间大的 span。
 
-1. 兄弟 Span 间有重叠，且 Span 还有子 Span，如下图所示，p span 有 c1/c2 两个子 span，c1 span 还有子 span，c2 的结束时间大于 c1 的开始时间。
+1. 兄弟 span 间有重叠，且 span 还有子 Span，如下图所示，p span 有 c1/c2 两个子 span，c1 span 还有子 span，c2 的结束时间大于 c1 的开始时间。
 
    ![image](https://user-images.githubusercontent.com/1284531/103149260-d80df700-47a2-11eb-9047-2d199f7950cc.png)
 
