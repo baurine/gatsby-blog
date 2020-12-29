@@ -466,18 +466,220 @@ calcDepth(rootSpan)
 
 ![image](https://user-images.githubusercontent.com/1284531/103256368-06b8e700-49c8-11eb-93eb-57d4ba0ea743.png)
 
-## 绘制 - 方案选择
+## 绘制
+
+### 方案选择
 
 绘制 2D 图形方案无非三种：SVG，Canvas，HTML DOM。
 
 简单分析了一下 jaeger, datadog, chrome devtool 的方案选择：
 
 1. jaeger: 概览视图用了 Canvas，概览图上的区间选择部分使用了 SVG，而详细视图使用了传统的 HTML DOM。(呃，三种全用上了，不懂，何必呢，既然都已经用上 Canvas 为啥还要用其它，有点炫技了...)
-1. datadog: 纯 Canvas
+1. datadog: Canvas
 1. chrome devtool: Canvas (这个是通过看源码得知的，随便找段代码 - [code snippet](https://github.com/ChromeDevTools/devtools-frontend/blob/fa0a768292e0762e82f5634f5f0b3c252922ac74/front_end/performance_monitor/PerformanceMonitor.js#L219))
 
 SVG 适用于展示型图表，少量交互；Canvas 适用于绘制量比较大的图形，不限于图表，以及交互比较复杂的图形；这个场景中交互不算太多，但不算是图表类型；其实 SVG 也能实现，但总体来说还是 Canvas 更适合一些，也难怪三者不约而同地都选择了使用 Canvas。所以我们还犹豫啥呢，就用 Canvas 了。
 
-接下来需要确实需不需要使用封装好的库。如果选 SVG，那毫无疑问就用 d3 了。但 Canvas 并没有像 d3 这种地位的库。鉴于我们这个场景中绘制的都是简单的直线及矩形，甚至连个圆都没有，原生 API 就足够了。当然，以及 chrome devtool 也是用原生 API 实现的。
+接下来需要确实需不需要使用封装好的库。如果选 SVG，那毫无疑问就用 d3 了。但 Canvas 并没有像 d3 这种地位的库。鉴于我们这个场景中绘制的都是简单的直线及矩形，甚至连个圆都没有，原生 API 就足够了。当然，以及 Chrome DevTool 也是用原生 API 实现的。
 
-方案确定好后我们就可以开始绘制了，绘制后再考虑交互操作。
+方案确定好后我们就可以开始绘制了，绘制后再考虑交互操作。(不过部分绘制其实是依赖交互的...)
+
+关于 Canvas 的绘制，推荐一本好书：[《HTML5 Canvas 核心技术》](https://book.douban.com/subject/24533314/)
+
+### 概览图的绘制
+
+(不涉及所有细节，只讲大概，具体细节看代码实现)
+
+#### 准备工作
+
+在绘制之前，我们先做一些准备工作，或者说先解决一些坑。
+
+1. 比例尺
+1. blurry 问题
+1. 时间转换
+
+##### 比例尺
+
+因为 span 里的信息是相对时间和持续时间，绘制时我们要把相对时间转换成 x 轴上的起始坐标，持续时间转换为长度，因为这里需要一个比例尺，当然，自己实现也不复杂，但如果有现成的干嘛不用呢。虽然我们没有用 svg 和 d3 来绘制，但 d3 提供了丰富的工具函数，因此我们可以使用 d3 提供的比例尺。
+
+定义一个从时间映射到长度的比例尺。
+
+```ts
+setTimeLenScale() {
+  this.timeLenScale = scaleLinear()
+    .domain([0, this.timeDuration])
+    .range([0, this.width])
+}
+```
+
+需要从时间转换成长度时，比如：`this.timeLenScale(span.relative_begin_unix_time_ns)`。
+
+还可以方便地从长度转换成时间，使用它的 invert() 方法，比如：
+
+```ts
+windowToTimeRange(window: Window): TimeRange {
+  return {
+    start: this.timeLenScale.invert(window.left),
+    end: this.timeLenScale.invert(window.right),
+  }
+}
+```
+
+##### blurry 问题
+
+在高清屏上绘制 canvas 时，如果不作特殊处理，会发现绘制出来的内容是模糊的，像下面这样：
+
+![image](https://user-images.githubusercontent.com/1284531/103259507-a67c7200-49d4-11eb-94ca-599a07ca7ea7.png)
+
+再对比一下修复后的效果：
+
+![image](https://user-images.githubusercontent.com/1284531/103259462-7af98780-49d4-11eb-8da8-6f35553096ed.png)
+
+具体原因是因为在高清屏上，一个 css 像素实际应该要对应多个物理像素，而不再是一个物理像素。
+
+简单的修复，让一个 css 像素对应多个物理像素。
+
+```ts
+fixPixelRatio() {
+  // https://developer.mozilla.org/zh-CN/docs/Web/API/Window/devicePixelRatio
+  const dpr = window.devicePixelRatio || 1
+
+  this.context.canvas.style.width = this.width + 'px'
+  this.context.canvas.style.height = this.height + 'px'
+  this.context.canvas.width = this.width * dpr
+  this.context.canvas.height = this.height * dpr
+  this.context.scale(dpr, dpr)
+}
+```
+
+相关链接：[Window.devicePixelRatio](https://developer.mozilla.org/zh-CN/docs/Web/API/Window/devicePixelRatio)
+
+##### 时间转换
+
+span 里的各种时间默认都是以 ns 为单位的，这个数比较大，展现的时候我们需要灵活地转换成易阅读的数值，比如将 "13387520 ns" 转换成 "13.39 ms"，将 "13885 ns" 转换成 "13.89 µs"。我们从 grafana 里抽出了相关的实现，使用方法如下：
+
+```ts
+import { getValueFormat } from '@baurine/grafana-value-formats'
+
+getValueFormat('ns')(13387520, 2) // 得到 "13.39 ms"
+```
+
+#### 绘制内容
+
+![image](https://user-images.githubusercontent.com/1284531/103260341-3ff95300-49d8-11eb-8984-a6a60f66df3e.png)
+
+由上图可以看出，需要绘制的内容大致由五部分，由先到后分别是：
+
+1. 关键的时间间隔节点，包括时间值及一条细的竖线
+1. span 的概览图
+1. 区间选择区域 (实际绘制的是未选中的区域，用半透明灰色区域表示)
+1. 重新用鼠标框选的新的区间，用来替换原来的区间 (半透明浅蓝色区域)
+1. 一根跟随鼠标显示的竖线，用来标志鼠标当前位置，用蓝色竖线表示
+
+(后三者的绘制依赖交互操作)
+
+因此，定义 draw() 函数：
+
+```ts
+draw() {
+  // 重绘之前先清空画布
+  this.context.clearRect(0, 0, this.width, this.height)
+
+  this.drawTimePointsAndVerticalLines()
+  this.drawFlameGraph()
+  this.drawWindow()
+  this.drawSelectedWindow()
+  this.drawMoveVerticalLine()
+}
+```
+
+##### 1. 绘制关键的时间标志线
+
+没太多可讲的，用 fillText() 方法绘制时间值，用 lineTo() 绘制竖线。更关键的地方在于如何根据画布的宽度计算合适的时间间隔。
+
+细节先略过。
+
+##### 2. 绘制 span 的概览图
+
+这一部分算是核心绘制内容。
+
+我们可以像其它部分一样，直接把所有 span 绘制在当前 canvas (我们把它称之为屏上 canvas 吧) 上。这样每一次交互，我们都会重绘，需要把所有 span 重新绘制一次。就我们这个场景而言，其实也完全可以，因为绘制量没那么大。
+
+这里我们选择了另一种方案，我们使用了一个离屏 canvas (offscreen canvas)。我们先在最开始的时候把所有 span 一次性地绘制到离屏 canvas 上，这个操作只会进行一次。之后，每次屏上 canvas 需要重绘时，我们就把离屏 canvas 上的所有内容整体拷贝复制到屏上 canvas 上，用空间换时间。(理论上性能应该会好一些，但实际也不尽然)
+
+这种方案适用于绘制内容不变化的情况，不会被交互影响。像其它几部分内容就会跟随交互而变化，就不适合用离屏 canvas。
+
+而单个 span 在离屏 canvas 中的绘制也没太多可讲的，无非就是使用 fillRect() 填充一个矩形，当和 parent span 之间差了一个层级时，再加上一个竖线。
+
+完整实现：
+
+```ts
+// setup
+constructor(container: HTMLDivElement, flameGraph: IFlameGraph) {
+  // ...
+
+  this.drawOffscreenCanvas()
+  this.draw()
+  // ...
+}
+
+//////////////
+// offscreen canvas
+drawOffscreenCanvas() {
+  this.offscreenContext.save()
+  this.drawSpan(this.flameGraph.rootSpan, this.offscreenContext)
+  this.offscreenContext.restore()
+}
+
+drawSpan(span: IFullSpan, ctx: CanvasRenderingContext2D) {
+  if (span.node_type === 'TiDB') {
+    ctx.fillStyle = '#aab254'
+  } else {
+    ctx.fillStyle = '#507359'
+  }
+
+  // 绘制矩形
+  const x = this.timeLenScale(span.relative_begin_unix_time_ns)
+  const y = span.depth * TimelineOverviewChart.OFFSCREEN_CANVAS_LAYER_HEIGHT
+  let width = Math.max(
+    this.timeLenScale(span.duration_ns!),
+    TimelineOverviewChart.OFFSCREEN_CANVAS_SPAN_WIDTH
+  )
+  const height = TimelineOverviewChart.OFFSCREEN_CANVAS_LAYER_HEIGHT - 1
+  ctx.fillRect(x, y, width, height)
+
+  // 绘制竖线
+  const deltaDepth = span.depth - (span.parent?.depth || 0)
+  if (deltaDepth > 1) {
+    ctx.strokeStyle = ctx.fillStyle
+    ctx.lineWidth = 0.5
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    ctx.lineTo(
+      x,
+      y -
+        (deltaDepth - 1) * TimelineOverviewChart.OFFSCREEN_CANVAS_LAYER_HEIGHT
+    )
+    ctx.stroke()
+  }
+
+  span.children.forEach((s) => this.drawSpan(s, ctx))
+}
+
+// 重绘时从离屏 canvas 整体拷贝
+drawFlameGraph() {
+  this.context.save()
+  this.context.drawImage(
+    this.offscreenContext.canvas,
+    0,
+    0,
+    this.width,
+    this.offscreenCanvasHeight,
+    0,
+    16,
+    this.width,
+    this.height - 16
+  )
+  this.context.restore()
+}
+```
