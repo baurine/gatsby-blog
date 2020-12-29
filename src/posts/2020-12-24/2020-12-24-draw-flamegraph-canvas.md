@@ -466,9 +466,7 @@ calcDepth(rootSpan)
 
 ![image](https://user-images.githubusercontent.com/1284531/103256368-06b8e700-49c8-11eb-93eb-57d4ba0ea743.png)
 
-## 绘制
-
-### 方案选择
+## 绘制 - 方案选择
 
 绘制 2D 图形方案无非三种：SVG，Canvas，HTML DOM。
 
@@ -486,11 +484,11 @@ SVG 适用于展示型图表，少量交互；Canvas 适用于绘制量比较大
 
 关于 Canvas 的绘制，推荐一本好书：[《HTML5 Canvas 核心技术》](https://book.douban.com/subject/24533314/)
 
-### 概览图的绘制
+## 概览图的绘制
 
 (不涉及所有细节，只讲大概，具体细节看代码实现)
 
-#### 准备工作
+### 准备工作
 
 在绘制之前，我们先做一些准备工作，或者说先解决一些坑。
 
@@ -498,7 +496,7 @@ SVG 适用于展示型图表，少量交互；Canvas 适用于绘制量比较大
 1. blurry 问题
 1. 时间转换
 
-##### 比例尺
+#### 1. 比例尺
 
 因为 span 里的信息是相对时间和持续时间，绘制时我们要把相对时间转换成 x 轴上的起始坐标，持续时间转换为长度，因为这里需要一个比例尺，当然，自己实现也不复杂，但如果有现成的干嘛不用呢。虽然我们没有用 svg 和 d3 来绘制，但 d3 提供了丰富的工具函数，因此我们可以使用 d3 提供的比例尺。
 
@@ -525,7 +523,7 @@ windowToTimeRange(window: Window): TimeRange {
 }
 ```
 
-##### blurry 问题
+#### 2. blurry 问题
 
 在高清屏上绘制 canvas 时，如果不作特殊处理，会发现绘制出来的内容是模糊的，像下面这样：
 
@@ -554,7 +552,7 @@ fixPixelRatio() {
 
 相关链接：[Window.devicePixelRatio](https://developer.mozilla.org/zh-CN/docs/Web/API/Window/devicePixelRatio)
 
-##### 时间转换
+#### 3. 时间转换
 
 span 里的各种时间默认都是以 ns 为单位的，这个数比较大，展现的时候我们需要灵活地转换成易阅读的数值，比如将 "13387520 ns" 转换成 "13.39 ms"，将 "13885 ns" 转换成 "13.89 µs"。我们从 grafana 里抽出了相关的实现，使用方法如下：
 
@@ -564,7 +562,7 @@ import { getValueFormat } from '@baurine/grafana-value-formats'
 getValueFormat('ns')(13387520, 2) // 得到 "13.39 ms"
 ```
 
-#### 绘制内容
+### 绘制内容
 
 ![image](https://user-images.githubusercontent.com/1284531/103260341-3ff95300-49d8-11eb-8984-a6a60f66df3e.png)
 
@@ -593,19 +591,23 @@ draw() {
 }
 ```
 
-##### 1. 绘制关键的时间标志线
+每一次的交互操作都会触发重绘，即调用 `this.draw()`，在 draw() 时，首先第一步是清空画布，然后再重新绘制所有内容。
 
-没太多可讲的，用 fillText() 方法绘制时间值，用 lineTo() 绘制竖线。更关键的地方在于如何根据画布的宽度计算合适的时间间隔。
+#### 1. 绘制关键的时间标志线
+
+没太多可讲的，用 fillText() 方法绘制时间值，用 lineTo() 和 stroke() 绘制竖线。更关键的地方在于如何根据画布的宽度计算合适的时间间隔。
 
 细节先略过。
 
-##### 2. 绘制 span 的概览图
+#### 2. 绘制 span 的概览图
 
 这一部分算是核心绘制内容。
 
 我们可以像其它部分一样，直接把所有 span 绘制在当前 canvas (我们把它称之为屏上 canvas 吧) 上。这样每一次交互，我们都会重绘，需要把所有 span 重新绘制一次。就我们这个场景而言，其实也完全可以，因为绘制量没那么大。
 
-这里我们选择了另一种方案，我们使用了一个离屏 canvas (offscreen canvas)。我们先在最开始的时候把所有 span 一次性地绘制到离屏 canvas 上，这个操作只会进行一次。之后，每次屏上 canvas 需要重绘时，我们就把离屏 canvas 上的所有内容整体拷贝复制到屏上 canvas 上，用空间换时间。(理论上性能应该会好一些，但实际也不尽然)
+这里我们选择了另一种方案，我们使用了一个离屏 canvas (offscreen canvas，内存中的 canvas)。我们先在最开始的时候把所有 span 一次性地绘制到离屏 canvas 上，这个操作只会进行一次。之后，每次屏上 canvas 需要重绘 span 时，我们就把离屏 canvas 上的所有内容整体拷贝复制到屏上 canvas 上，用空间换时间。(理论上性能应该会好一些，但实际也不尽然)
+
+> 注意：离屏 canvas 不需要处理 blurry 的问题，因为它并不在屏幕上显示。
 
 这种方案适用于绘制内容不变化的情况，不会被交互影响。像其它几部分内容就会跟随交互而变化，就不适合用离屏 canvas。
 
@@ -683,3 +685,270 @@ drawFlameGraph() {
   this.context.restore()
 }
 ```
+
+#### 3. 绘制区间选择区域
+
+我们可以在概览图上选择一个区间，然后在详细视图上只展现这个区间内的 span 的情况，实现一种放大功能。区间的选择可以通过以下交互来改变：
+
+1. 通过鼠标滚轮操作来放大缩小
+1. 通过鼠标拖拽区间左右边界来分别改变左右区间
+1. 通过鼠标整体拖拽区间来整体移动区间
+1. 通过鼠标框选来重新设置区间
+
+我们用 `this.curWindow` 成员变量来定义当前的选择区间，而上述交互的最终结果只是来修改 `this.curWindow`，并触发重绘。
+
+绘制选中的区间时，我们只需要 `this.curWindow` 即可。
+
+为了凸显选中的区间，我们将未选中的区间用半透明灰色覆盖。透明度用 globalAlpha 来设置。
+
+如下所示：
+
+```ts
+drawWindow() {
+  const { left, right } = this.curWindow
+
+  this.context.save()
+
+  // draw unselected window area
+  this.context.globalAlpha = TimelineOverviewChart.UNSELECTED_WINDOW_ALPHA
+  this.context.fillStyle = TimelineOverviewChart.UNSELECTED_WINDOW_FILL_STYLE
+  this.context.fillRect(0, 0, left, this.height)
+  this.context.fillRect(right, 0, this.width, this.height)o
+
+  // draw window left and right borders
+  // ...
+
+  // draw resize area
+  // ...
+}
+```
+
+#### 4. 绘制重新用鼠标框选的新区间
+
+用户可以用鼠标框选新的区间，我们会在鼠标左键按下时，记录初始位置，然后随着鼠标移动，用半透明浅蓝色区域表示新的框选区间。也是一个 fillRect() 操作，用 globalAlpha 设置透明度。
+
+```ts
+drawSelectedWindow() {
+  if (this.mouseDownPos === null || this.action !== Action.SelectWindow) {
+    return
+  }
+
+  this.context.save()
+  this.context.globalAlpha = TimelineOverviewChart.SELECTED_WINDOW_ALPHA
+  this.context.fillStyle = TimelineOverviewChart.SELECTED_WINDOW_FILL_STYLE
+  if (this.curMousePos.x > this.mouseDownPos.x) {
+    this.context.fillRect(
+      this.mouseDownPos.x,
+      0,
+      this.curMousePos.x - this.mouseDownPos.x,
+      this.height
+    )
+  } else {
+    this.context.fillRect(
+      this.curMousePos.x,
+      0,
+      this.mouseDownPos.x - this.curMousePos.x,
+      this.height
+    )
+  }
+  this.context.restore()
+}
+```
+
+#### 5. 绘制一根跟随鼠标显示的竖线
+
+这根竖线用来标志鼠标当前位置，用蓝色竖线表示。在鼠标移动时记录它的坐标，然后在这个坐标处绘制这根竖线即可，用 lineTo() 和 stroke() 方法。
+
+```ts
+drawMoveVerticalLine() {
+  // not draw it when mouse move outside the canvas
+  // to keep same as the chrome dev tool
+  if (
+    this.action !== Action.SelectWindow ||
+    this.mouseOutsideCanvas(this.curMousePos)
+  ) {
+    return
+  }
+
+  this.context.save()
+  this.context.strokeStyle =
+    TimelineOverviewChart.MOVED_VERTICAL_LINE_STROKE_STYLE
+  this.context.lineWidth = TimelineOverviewChart.MOVED_VERTICAL_LINE_WIDTH
+  this.context.beginPath()
+  this.context.moveTo(this.curMousePos.x, 0)
+  this.context.lineTo(this.curMousePos.x, this.height)
+  this.context.stroke()
+  this.context.restore()
+}
+```
+
+## 概览图的交互
+
+(其实不应该和绘制分开讲，结合在一起讲会更好；或者先讲交互)
+
+概览图支持以下交互：
+
+1. 浏览器调整大小时修改 canvas 尺寸
+1. 鼠标滚轮放大缩小选择的区间
+1. 鼠标的部分拖拽和整体拖拽来修改选择的区间
+1. 鼠标框选修改选择的区间
+1. 鼠标移动时显示跟随的一根竖线
+
+这些交互最终的结果都是修改相应的成员变量，触发重绘，重绘时使用新的成员变量来进行绘制。
+
+交互是通过监听各种事件，然后进行相应的处理进行实现。
+
+```ts
+/////////////////////////////////////
+// setup
+constructor(container: HTMLDivElement, flameGraph: IFlameGraph) {
+  // ...
+
+  this.registerHanlers()
+}
+
+/////////////////////////////////////
+// event handlers: mousedown, mousemove, mouseup, mousewheel, resize
+registerHanlers() {
+  window.addEventListener('resize', this.onResize)
+  // https://developer.mozilla.org/en-US/docs/Web/API/Element/wheel_event
+  this.context.canvas.addEventListener('wheel', this.onMouseWheel)
+  this.context.canvas.addEventListener('mousedown', this.onMouseDown)
+  this.context.canvas.addEventListener('mousemove', this.onCanvasMouseMove)
+  this.context.canvas.addEventListener('mouseout', this.onCanvasMouseOut)
+  window.addEventListener('mousemove', this.onWindowMouseMove)
+  window.addEventListener('mouseup', this.onMouseUp)
+}
+```
+
+具体的处理逻辑看代码吧。(如果有人反馈哪个地方需要特别讲一下我再加上)
+
+当鼠标放置在不同的位置上时会触发不同的动作，这个是通过简单的比较坐标实现的。Canvas 提供了一个 API `context.isPointInPath(x,y)` 来判断某个坐标是否在当前 path 中，对于复杂的图形可以用这个 API，我们这里都是很简单的图形，直接手工判断就行。
+
+```ts
+updateAction(loc: Pos) {
+  // only change it when mouse isn't down
+  if (this.mouseDownPos) return
+
+  const { left, right } = this.curWindow
+  if (this.mouseOutsideCanvas(loc)) {
+    this.action = Action.None
+  } else if (loc.y > this.dragAreaHeight) {
+    this.action = Action.SelectWindow
+  } else if (
+    loc.x > left - TimelineOverviewChart.WINDOW_RESIZE_LINE_WIDTH_HALF &&
+    loc.x < left + TimelineOverviewChart.WINDOW_RESIZE_LINE_WIDTH_HALF
+  ) {
+    this.action = Action.MoveWindowLeft
+  } else if (
+    loc.x > right - TimelineOverviewChart.WINDOW_RESIZE_LINE_WIDTH_HALF &&
+    loc.x < right + TimelineOverviewChart.WINDOW_RESIZE_LINE_WIDTH_HALF
+  ) {
+    this.action = Action.MoveWindowRight
+  } else {
+    this.action = Action.MoveWindow
+  }
+  this.updateCursor()
+}
+```
+
+至此，概览图的功能就基本完成了。
+
+## 详细视图的交互和绘制
+
+### 交互
+
+详细视图用来放大显示概览图中选中的区间。
+
+支持的交互：
+
+1. 鼠标滚轮控制展示区间的放大缩小
+1. 鼠标拖拽移动展示区间
+1. 点击 span
+1. hover span 显示 tooltip
+
+鼠标滚轮和拖拽的处理逻辑和概览图是一样的。
+
+点击 span 和 hover span 显示 tooltip 的核心在鼠标点击或移动时判断当前坐标是否落在某个 span 中。前面说了我们可以使用 `context.isPointInPath(x,y)` 这个 API，但也可以手工比较，这里我们就直接手工比较了。
+
+我们遍历所有 span，返回第一个包含当前坐标的 span。
+
+```ts
+getSpanInPos(span: IFullSpan, pos: Pos): IFullSpan | null {
+  const { x, y } = pos
+  const x1 = this.timeLenScale(span.relative_begin_unix_time_ns)
+  let x2 = this.timeLenScale(span.relative_end_unix_time_ns)
+  if (x2 === x1) {
+    x2 = x1 + TimelineDetailChart.MIN_SPAN_WIDTH
+  }
+
+  const y1 = span.depth * TimelineDetailChart.LAYER_HEIGHT
+  const y2 = y1 + TimelineDetailChart.LAYER_HEIGHT - 1
+  if (x <= x2 && x >= x1 && y <= y2 && y >= y1) {
+    return span
+  }
+  if (span.children.length === 0) {
+    return null
+  }
+
+  // traverse children
+  for (let i = 0; i < span.children.length; i++) {
+    const targetSpan = this.getSpanInPos(span.children[i], pos)
+    if (targetSpan) {
+      return targetSpan
+    }
+  }
+  return null
+}
+```
+
+然后在鼠标移动事件中，找到 hover 的 span，在坐标附近显示 tooltip。重绘时，如果 span 是 hover 的那个 span，则用不同的颜色加以区分。
+
+```ts
+onCanvasMouseMove = (event) => {
+  //...
+
+  const loc = this.windowToCanvasLoc(event.clientX, event.clientY)
+  this.hoverSpan = this.getSpanInPos(this.flameGraph.rootSpan, loc)
+  this.showTooltip({ x: event.clientX, y: event.clientY })
+  this.draw()
+}
+```
+
+同理，在鼠标点击事件中，找到点击的 span，并触发重绘，重绘时在点击的 span 边框上绘制不同的颜色加以区分。
+
+鼠标点击事件的判断实际是在 mouseup 事件中，如果弹起时的坐标和按下时的坐标一样，则判断为点击事件。
+
+```ts
+onMouseUp = (event) => {
+  //...
+  const loc = this.windowToCanvasLoc(event.clientX, event.clientY)
+
+  // handle click
+  if (loc.x === this.mouseDownPos?.x && loc.y === this.mouseDownPos?.y) {
+    this.clickedSpan = this.getSpanInPos(this.flameGraph.rootSpan, loc)
+    //...
+  }
+
+  // release mouse
+  this.mouseDownPos = null
+  this.draw()
+}
+```
+
+### 绘制
+
+在详细视图中需要绘制的内容：
+
+1. 选中的区间范围内的 span
+1. 在 span 上显示文字，包括 span 的 event 和 duration time
+1. 点击的 span 显示额外的边框
+1. 为 hover 的 span 显示 tooltip
+
+#### tooltip
+
+先说 tooltip 吧。
+
+一般来说，tooltip 用 HTML DOM 绘制会更方便和灵活，所以 tooltip 就不用 canvas 来绘制。
+
+tooltip 用一个 fixed 定位的 div，初始透明度为 0。当有 span hover 时，将透明度设为 0，并用 translate() 将它的坐标移到鼠标坐标附近。
