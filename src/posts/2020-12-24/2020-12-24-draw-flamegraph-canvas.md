@@ -133,7 +133,7 @@ Chrome DevTool Performance Panel:
 
    不需要特殊处理，只需要把子 span 绘制在父 span 的下一层即可。
 
-1. 兄弟 span 间有重叠，且 span 没有子 Span，如下图所示，p span 有 c1/c2 两个子 span，且 c2 的结束时间大于 c1 的开始时间。
+1. 兄弟 span 间有重叠，且 span 没有子 span，如下图所示，p span 有 c1/c2 两个子 span，且 c2 的结束时间大于 c1 的开始时间。
 
    ![image](https://user-images.githubusercontent.com/1284531/103148831-cfb3bd00-479e-11eb-9efd-89e6bc2bac89.png)
 
@@ -143,7 +143,7 @@ Chrome DevTool Performance Panel:
 
    此时，c1 和父 span 之间由于隔了一层，父子关系已经不再那么直观了，为了表明 c2 的父 span 是 p，于是在 c2 和 p 之间绘制一条细线。
 
-   而假如我们先开始绘制 c2，再开始绘制 c1，则 c1 和 p 之间的细线就会和 c2 重叠，不好。像下面这样：
+   而假如我们先开始绘制 c2，再开始绘制 c1，则 c1 和 p 之间的细线就会和 c2 重叠，这样明显视觉效果上差一点。像下面这样：
 
    ![image](https://user-images.githubusercontent.com/1284531/103149094-59648a00-47a1-11eb-8ec6-e08945e1faea.png)
 
@@ -166,12 +166,12 @@ Chrome DevTool Performance Panel:
 综上，我们在准备阶段需要做的工作：
 
 1. 将数组转换成树结构
-1. 计算 span 的最大结束时间
-1. 计算 span 的 depth
+1. 计算每个 span 的最大结束时间
+1. 计算每个 span 的 depth
 
 ### 将数组转成树
 
-我们从 API 获取的是 span 的数组，比如：
+我们从 API 获取的是 span 的数组，比如像下面这样：
 
 ```json
 {
@@ -259,7 +259,7 @@ source.span_sets?.forEach((spanSet) => {
 }
 ```
 
-计算相对时间，要先找出 root span，root span 的 parent_id 为 0。将所有 span 的 begin_unix_time_ns 减去 root span 的 begin_unix_time_ns 就是各个 span 的相对开始时间。
+计算相对时间，要先找出 root span，root span 的 parent_id 为 0。将每个 span 的 begin_unix_time_ns 减去 root span 的 begin_unix_time_ns 就是各个 span 的相对开始时间。
 
 ```ts
 const rootSpan = allSpans.find((span) => span.parent_id === 0)!
@@ -395,15 +395,15 @@ calcMaxEndTime(spansObj)
 
 1. root span 绘制在第 0 层
 1. 绘制同属于相同的 parent span 的兄弟 span 时，先绘制开始时间大的 span
-1. 当 span 为兄弟 span 中开始时间最大的 span 时 (即最先绘制)，它的 depth 为父 span 的 depth + 1，即 span.depth = parentSpan.depth + 1
-1. 当 span 和前一个兄弟 span 不重叠时，则该 span 和前一个兄弟 span 绘制在同一层，即 span.depth = lastSpan.depth
-1. 当 span (假设为 span s1) 和前一个兄弟 span (假设为 span s2) 重叠时，这种情况就复杂了。这时又要分两种情况
-   1. 如果前一个兄弟 span s2 没有子 span，即它是叶子 span，这时要绘制的 span s1 可以在前一个兄弟 span s2 的下一层，即 span.depth = lastSpan.depth + 1
-   1. 如果前一个兄弟 span s2 有子 span，而且它的子 span 多达数层，比如 5 层，这时要绘制的 span s1 则需要处于 span s2 的最底层的子 span 的下下层，即 span.depth = lastSpan.max_child_depth + 2
+1. 当 span 为兄弟 span 中开始时间最大的 span 时 (即最先绘制)，它的 depth 为父 span 的 depth + 1，即 `span.depth = parentSpan.depth + 1`
+1. 当 span 和前一个兄弟 span 不重叠时，则该 span 和前一个兄弟 span 绘制在同一层，即 `span.depth = lastSpan.depth`，也即是 `span.depth = parentSpan.depth + 1`
+1. 当 span (假设为 span s2) 和前一个兄弟 span (假设为 span s1) 重叠时，这种情况就复杂了。这时又要分两种情况
+   1. 如果前一个兄弟 span s1 没有子 span，即它是叶子 span，这时要绘制的 span s2 可以在前一个兄弟 span s1 的下一层，即 `span.depth = lastSpan.depth + 1`
+   1. 如果前一个兄弟 span s1 有子 span，而且它的子 span 多达数层，比如 5 层，这时要绘制的 span s2 则需要处于 span s1 的最底层的子 span 的下下层，即 `span.depth = lastSpan.max_child_depth + 2`
 
 这里的难点就在于如何计算 `max_child_depth`，它其实是和 depth 相互影响的。即 depth 在某些情况下依赖 `max_child_depth` 计算得到，而 `max_child_depth` 则依赖 depth 计算得到。
 
-我选择的算法是先由顶到底，再由底到顶。具体来说，就是先从 root span 开始，它的初始 depth 和 `max_child_depth` 都是 0，往下逐层开始计算 depth，每计算一个 span，就逐层往上，用自己最新的 depth 更新父级的 `max_child_depth`。
+我选择的算法是先由顶到底，再由底到顶。具体来说，就是先从 root span 开始，它的初始 depth 和 `max_child_depth` 都是 0，往下逐层开始计算 depth，每计算一个 span，就反向逐层往上，用自己最新的 depth 更新父级的 `max_child_depth`。
 
 所以，最终实现如下所示：
 
@@ -459,3 +459,25 @@ function updateParentChildDepth(span: IFullSpan) {
 
 calcDepth(rootSpan)
 ```
+
+至此，我们得到每一个 span 绘制时所处于的层级，开始时间，结束时间，就可以把这个 span 绘制出来了。剩下的就是如何绘制了。
+
+最终的 root span:
+
+![image](https://user-images.githubusercontent.com/1284531/103256368-06b8e700-49c8-11eb-93eb-57d4ba0ea743.png)
+
+## 绘制 - 方案选择
+
+绘制 2D 图形方案无非三种：SVG，Canvas，HTML DOM。
+
+简单分析了一下 jaeger, datadog, chrome devtool 的方案选择：
+
+1. jaeger: 概览视图用了 Canvas，概览图上的区间选择部分使用了 SVG，而详细视图使用了传统的 HTML DOM。(呃，三种全用上了，不懂，何必呢，既然都已经用上 Canvas 为啥还要用其它，有点炫技了...)
+1. datadog: 纯 Canvas
+1. chrome devtool: Canvas (这个是通过看源码得知的，随便找段代码 - [code snippet](https://github.com/ChromeDevTools/devtools-frontend/blob/fa0a768292e0762e82f5634f5f0b3c252922ac74/front_end/performance_monitor/PerformanceMonitor.js#L219))
+
+SVG 适用于展示型图表，少量交互；Canvas 适用于绘制量比较大的图形，不限于图表，以及交互比较复杂的图形；这个场景中交互不算太多，但不算是图表类型；其实 SVG 也能实现，但总体来说还是 Canvas 更适合一些，也难怪三者不约而同地都选择了使用 Canvas。所以我们还犹豫啥呢，就用 Canvas 了。
+
+接下来需要确实需不需要使用封装好的库。如果选 SVG，那毫无疑问就用 d3 了。但 Canvas 并没有像 d3 这种地位的库。鉴于我们这个场景中绘制的都是简单的直线及矩形，甚至连个圆都没有，原生 API 就足够了。当然，以及 chrome devtool 也是用原生 API 实现的。
+
+方案确定好后我们就可以开始绘制了，绘制后再考虑交互操作。
