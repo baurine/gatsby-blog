@@ -23,20 +23,20 @@ SSR 不再成为前后端分离的痛点后，相比前后端一体的优点：
 对于前端，在不同的需求下，我们需要选择不同的 React 框架。以下是我的个人心得总结：
 
 1. 面向终端用户 (最广大的普通用户) 的动态网站
-   - 需要考虑 SEO (SSR) - Next.js
-   - 不需要考虑 SEO (SSR)，比如 Facebook 这种需要登录才能使用的网站 - Create React App 或同类框架 (umi)
+   - 需要考虑 SEO (SSR) - [Next.js](https://nextjs.org/)
+   - 不需要考虑 SEO (SSR)，比如 Facebook 这种需要登录才能使用的网站 - CRA (Create React App) ~~或同类框架 (umi)~~
 1. 面向终端用户的静态网站 (比如仅用于宣传的官网，文档)
-   - 宣传型的官网：[Gatsby](https://www.gatsbyjs.org/)
-   - 文档：[Gatsby](https://www.gatsbyjs.org/) / [Docusaurus](https://docusaurus.io/) / [docz](https://www.docz.site/)
+   - 宣传型的官网：[Gatsby](https://www.gatsbyjs.org/) / [Next.js](https://nextjs.org/)
+   - 文档站：[Gatsby](https://www.gatsbyjs.org/) / [Docusaurus](https://docusaurus.io/) / [docz](https://www.docz.site/)
 1. 面向管理人员的 admin 后台 (完全不需要考虑 SEO)
-   - 对 UI 要求低 - 无脑上 Ant Design Pro (内置路由/dva/proxy/mock 等一条龙服务)
-   - 对 UI 有要求，要有自己的 style - Create React App 或同类框架 (umi)
+   - 对 UI 要求低 - ~~无脑上 Ant Design Pro (内置路由/dva/proxy/mock 等一条龙服务)~~ (现在觉得 Ant Design Pro 有点太重了，更倾向用 CRA + Ant Design 自己搭)
+   - 对 UI 有要求，要有自己的 style - CRA ~~或同类框架 (umi)~~
 
 配套的一些其它库：
 
 1. 语言 - TypeScript
-1. 路由 - next.js / ant design pro / umi 有自己的路由，gatsby 使用了 reach router，但使用 CRA 创建 SPA 的话我会推荐使用 react router (reach router 的 SEO 不行，出现问题 google 出来的结果好多是 react router 的页面)
-1. 状态管理 - dva (封装了 react router + redux-saga)
+1. 路由 - next.js / ant design pro / umi 有自己的路由，gatsby 使用了 reach router (reach router 新版本已经和 react router 6.0 合并了)，但使用 CRA 创建 SPA 的话我会推荐使用 react router (reach router 的 SEO 不行，出现问题 google 出来的结果好多是 react router 的页面)
+1. 状态管理 - ~~dva (封装了 react router + redux-saga)~~ (现在更倾向不用状态管理)
 1. CSS - next.js 使用了 styled-jsx，ant design pro 默认是 css modules，gatsby 教程中推荐使用 emotion ... 总之还是百花齐放，个人偏向 css modules
 1. lint + format - ESLint + Prettier
 1. UI Playground - Storybook
@@ -64,7 +64,7 @@ SSR 不再成为前后端分离的痛点后，相比前后端一体的优点：
 
 PS: 即使一个网站需要做 SSR，但具体到每个页面，每个页面的每个元素，可能有不同的需求，比如像登录页面，提交反馈界面，就没有必要做 SSR，如果某个页面中的一部分全是个性化推荐的内容，完全也可以不做 SSR。在写 render() 函数时，尽量在服务端少渲染东西，把它们下推到浏览器进行渲染，以减轻服务器压力，提高响应速度和性能。
 
-## 不需要 SSR - Create React App / umi / Ant Design Pro
+## 不需要 SSR - CRA / umi / Ant Design Pro
 
 示图：
 

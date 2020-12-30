@@ -18,6 +18,10 @@ tags: []
 1. SessionStorage
 1. 将过滤选项放置在 url 中，作为 url 的 query parameters
 
+3/4/5 只适合存放少量的数据。而如果我们还想恢复列表页中的列表数据，又不想用 redux，那么我们就需要自己管理缓存了。
+
+1. 使用内存中的缓存 (适合大量数据) (2020/12/30 添加)
+
 ## 全局 Store
 
 毫无疑问，这是最通用的方法。将过滤选项放置到全局的 redux store 中，如果你在项目中使用了 redux 的话。
@@ -58,8 +62,144 @@ SessionStorage 在关闭 tab 后持久化在其中的内容将自动清除，正
 
 这种方式适用于过滤选项比较少，只有一两项的时候，如果过滤选项多了，url 就会变得很丑。
 
+## 使用内存中的缓存 (2020/12/30 添加)
+
+这种方法适合数据量较多的情况。
+
+PR 链接：[use cache for slow query and statements](https://github.com/pingcap/tidb-dashboard/pull/828)
+
+使用 useRef 实现缓存管理器：
+
+```ts
+import { useRef, createContext } from 'react'
+
+type CacheItem = {
+  expireAt: number
+  data: any
+}
+
+type Cache = Record<string, CacheItem>
+
+const ONE_HOUR_TIME = 1 * 60 * 60 * 1000
+
+export type CacheMgr = {
+  get: (key: string) => any
+  set: (key: string, val: any, expire?: number) => void
+  remove: (key: string) => void
+}
+
+export const CacheContext = createContext<CacheMgr | null>(null)
+
+export default function useCache(
+  capacity: number = 1,
+  globalExpire: number = ONE_HOUR_TIME
+): CacheMgr {
+  const cache = useRef<Cache>({})
+  const cacheItemKeys = useRef<string[]>([])
+
+  function get(key: string): any {
+    const item = cache.current[key]
+    if (item === undefined) {
+      return undefined
+    }
+    if (item.expireAt < new Date().valueOf()) {
+      remove(key)
+      return undefined
+    }
+    return item.data
+  }
+
+  function set(key: string, val: any, expire?: number) {
+    const curTime = new Date().valueOf()
+    let expireAt: number
+    if (expire) {
+      expireAt = curTime + expire
+    } else {
+      expireAt = curTime + globalExpire
+    }
+    cache.current[key] = {
+      expireAt,
+      data: val,
+    }
+
+    // put the latest key in the end of cacheItemKeys
+    cacheItemKeys.current = cacheItemKeys.current
+      .filter((k) => k !== key)
+      .concat(key)
+    // if size beyonds the capacity
+    // remove the old ones
+    while (capacity > 0 && cacheItemKeys.current.length > capacity) {
+      remove(cacheItemKeys.current[0])
+    }
+  }
+
+  function remove(key: string) {
+    delete cache.current[key]
+    cacheItemKeys.current = cacheItemKeys.current.filter((k) => k !== key)
+  }
+
+  return { get, set, remove }
+}
+```
+
+将缓存管理器放置到 Context 中。
+
+```ts
+export default function () {
+  const statementCacheMgr = useCache()
+
+  return (
+    <Root>
+      <CacheContext.Provider value={statementCacheMgr}>
+        <Router>
+          <Routes>
+            <Route path="/statement" element={<List />} />
+            <Route path="/statement/detail" element={<Detail />} />
+          </Routes>
+        </Router>
+      </CacheContext.Provider>
+    </Root>
+  )
+}
+```
+
+这样，列表页和详情页切换过程中，缓存里的数据会一直存在。
+
+在列表页中对缓存进行读取和写入，比如：
+
+```ts
+useEffect(() => {
+  async function queryStatementList() {
+    const cacheItem = cacheMgr?.get(cacheKey) // 读取缓存
+    if (cacheItem) {
+      setStatements(cacheItem)
+      return
+    }
+
+    // ...
+
+    setLoadingStatements(true)
+    try {
+      const res = await client
+        .getInstance()
+        .statementsListGet(...)
+      setStatements(res?.data || [])
+      cacheMgr?.set(cacheKey, res?.data || []) // 写入缓存
+      setErrors([])
+    } catch (e) {
+      setErrors((prev) => prev.concat(e))
+    }
+    setLoadingStatements(false)
+  }
+
+  queryStatementList()
+}, [...])
+```
+
 ## 总结
 
 我们的项目因为没有使用 redux，所以第一种方法就排除了。然后尝试了 React Context，代码量较多，且因为要在子组件内更新 context，要很小心谨慎才能避免死循环；尝试了将过滤选项放置在 url 中，但由于过滤选项很多，url 很丑，遂放弃。最后在 LocalStorage 和 SessionStorage 是选择了 SessionStorage。
 
-示例代码：https://github.com/pingcap-incubator/tidb-dashboard/blob/master/ui/lib/apps/Statement/utils/useStatement.ts#L47
+update: 后来，为了同时能把列表中的数据也能恢复，因为这个数据量较大，放到 SessionStorage 里就不合适了，所以额外实现了一个简单缓存管理器，并配合 React Context 使用。
+
+示例代码：https://github.com/pingcap-incubator/tidb-dashboard/blob/master/ui/lib/apps/Statement/utils/useStatementTableController.ts

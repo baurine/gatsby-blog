@@ -805,6 +805,10 @@ drawMoveVerticalLine() {
 
 (其实不应该和绘制分开讲，结合在一起讲会更好；或者先讲交互)
 
+先回顾一下效果：
+
+![40](https://user-images.githubusercontent.com/1284531/103148110-3503b000-4797-11eb-8277-8e4274905d20.gif)
+
 概览图支持以下交互：
 
 1. 浏览器调整大小时修改 canvas 尺寸
@@ -814,6 +818,8 @@ drawMoveVerticalLine() {
 1. 鼠标移动时显示跟随的一根竖线
 
 这些交互最终的结果都是修改相应的成员变量，触发重绘，重绘时使用新的成员变量来进行绘制。
+
+![image](https://user-images.githubusercontent.com/1284531/103323873-c87efe80-4a7f-11eb-8bdf-42acd7d3e84d.png)
 
 交互是通过监听各种事件，然后进行相应的处理进行实现。
 
@@ -841,6 +847,10 @@ registerHanlers() {
 ```
 
 具体的处理逻辑看代码吧。(如果有人反馈哪个地方需要特别讲一下我再加上)
+
+一些事件监听是绑在 canvas 上，一些则绑定在 window 上。比如 mousemove 就同时绑定在 canvas 和 window 上，因为当拖拽时，即使鼠标移到到了 canvas 外面，这个事件也要继续响应；而如果鼠标没有按下进行移动时，我们则不关心在 canvas 之外的移动。
+
+鼠标滚轮事件监听的是 "wheel" 而不是 "mousewheel"，这样可以处理 Chrome 和 Firefox 的兼容性问题。
 
 当鼠标放置在不同的位置上时会触发不同的动作，这个是通过简单的比较坐标实现的。Canvas 提供了一个 API `context.isPointInPath(x,y)` 来判断某个坐标是否在当前 path 中，对于复杂的图形可以用这个 API，我们这里都是很简单的图形，直接手工判断就行。
 
@@ -876,6 +886,10 @@ updateAction(loc: Pos) {
 ## 详细视图的交互和绘制
 
 ### 交互
+
+先回顾一下效果：
+
+![42](https://user-images.githubusercontent.com/1284531/103148112-36cd7380-4797-11eb-8b57-167a4d706e3d.gif)
 
 详细视图用来放大显示概览图中选中的区间。
 
@@ -1012,7 +1026,7 @@ showTooltip(windowPos: Pos) {
 1. hover 的 span 要用不同的样式区分，这里实际用了不同的透明度为区分。
 1. 要为 span 绘制文字
 
-在绘制文字时，我们还要根据 span 的绘制宽度还选择是显示所有文字内容，还是对它进行 truncate，只显示部分，变或是完全不显示，只能通过 hover 或点击还获知它的信息。
+在绘制文字时，我们还要根据 span 的绘制宽度还选择是显示所有文字内容，还是对它进行 truncate，只显示部分，亦或是完全不显示，只能通过 hover 或点击还获知它的信息。
 
 Canvas 提供了 `context.measureText(text)` 来估算文字的大致长度。
 

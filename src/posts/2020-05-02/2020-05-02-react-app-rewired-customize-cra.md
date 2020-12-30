@@ -33,7 +33,7 @@ module.exports = function override(config, env) {
 
 config-overriders.js 导出的是一个函数，这个函数的签名是 `const override = (oldWebpackConfig, env) => newWebpackConfig`。(不过 oldWepbackConfig 和 newWebpackConfig 实际指向同一个对象，因为直接在原来的 webpack config 对象上进行修改)
 
-编译时，react-app-rewired 会先取到 create-react-app 生成的默认的 webpack config，然后调用 `override(cnofig)` 方法，对 config 进行修改，得到新的 webpack config。webpack 最终会使用这个新的 config 进行打包。
+编译时，react-app-rewired 会先取到 create-react-app 生成的默认的 webpack config，然后调用 `override(config)` 方法，对 config 进行修改，得到新的 webpack config。webpack 最终会使用这个新的 config 进行打包。
 
 react-app-rewired 原生写法，将对 webpack config 的修改全部写在 `override()` 一个方法中，不够模块化，customized-cra 则将它变得更模块化，它提供了一些 helper 方法，可以将每一个独立的修改放到单独的函数中，再串行执行这些函数。
 
