@@ -4,7 +4,7 @@ date: '2020-07-30'
 tags: [react hooks]
 ---
 
-最近在公司前端组做了一次关于 react hooks 的分享，本文是对分享内容的整理。
+最近在公司前端组做了一次关于 react hooks 的简单分享，本文是对分享内容的整理。
 
 主要分了三块讲：
 
@@ -509,7 +509,7 @@ useEffect(() => {
 
 这段代码会产生一个问题：死循环。
 
-每次 render 后，handleStatusChange 这个函数就会重新生成，因此它变化了，从而导致 useEffect() 中的逻辑执行，它会执行 `ChatAPI.subscribeToFriendStatus(props.friend.id, handleStatusChange)` 重新订阅朋友的状态，并最终执行 handleStatusChange 回调，它 handleStatusChange 回调中，它调用 setIsOnline() 改变 state，从而触发 re-render，然后 handleStatusChange 重新生成，导致 useEffect() 中的逻辑执行 ... 呃，死循环了。
+每次 render 后，handleStatusChange 这个函数就会重新生成，因此它变化了，从而导致 useEffect() 中的逻辑执行，它会执行 `ChatAPI.subscribeToFriendStatus(props.friend.id, handleStatusChange)` 重新订阅朋友的状态，并最终执行 handleStatusChange 回调，在 handleStatusChange 回调中，它调用 setIsOnline() 改变 state，从而触发 re-render，然后 handleStatusChange 又会重新生成，导致 useEffect() 中的逻辑执行 ... 周而复始。
 
 为了让 handleStatusChange 每次 render 时不再重新生成，我们可以用 useCallback 把它缓存住。
 
@@ -698,3 +698,202 @@ function useMousePos() {
 - [React Hooks 完全上手指南](https://juejin.im/post/5e67143ae51d452717263c13)
 - [Umi Hooks - 助力拥抱 React Hooks](https://zhuanlan.zhihu.com/p/103150605)
 - [精读《React Hooks》](https://github.com/dt-fe/weekly/blob/master/79.%E7%B2%BE%E8%AF%BB%E3%80%8AReact%20Hooks%E3%80%8B.md)
+
+## 扩展思考
+
+为什么 Android/iOS 传统的原生界面开发方案没有 React 这些问题，因为 React 的思想是一切皆组件，每个小的组件都拥有独立的生命周期。而 Android/iOS 却不是这样，它们的组件只是 view，只用来处理交互和绘制，不处理副作用 (如访问网络，IO)，只有最顶层的作为 view 的容器的 activity/controller，才有生命周期，一切副作用和状态的管理都只在 controller 中进行，所以导致 controller 容易臃肿。
+
+### React Hooks 与 Android Lifecycle
+
+(这一块没想得特别清楚，但觉得这两者思想上是有一些相似的)
+
+Android Lifecycle 是 Android 中用来简化开发的 JetPack 套件中的一个组件。以前写过一篇学习笔记：[Android Architecture Components Note](https://github.com/baurine/architecture-components-study/blob/master/note/architecture-components-note.md#handling-lifecycle)
+
+Android 中的 activity 和 React 中的 class 组件类似，有不同的生命周期，比如 onCreate(), onStart(), onStop() ...
+
+当我们想在不同的生命周期中做不同的事情时，我们不得不把逻辑分散写到 activity 的各个生命周期中。以地理位置监听器为例，要在 onCreate() 时创建监听器，onStart() 时开始监听，在 onStop() 时停止监听。像下面这样：
+
+```java
+class MyActivity extends AppCompatActivity {
+  private MyLocationListener myLocationListener;
+  // 其它对象，比如音乐播放器
+  private MusicPlayer musicPlayer;
+
+  public void onCreate(...) {
+    myLocationListener = new MyLocationListener(...);
+    // 初始化其它对象
+    musicPlayer = new MusicPlayer();
+  }
+
+  public void onStart() {
+    super.onStart();
+    myLocationListener.start();
+    // 开始其它对象
+    musicPlayer.start()
+  }
+
+  public void onStop() {
+    super.onStop();
+    myLocationListener.stop();
+    // 停止其它对象
+    musicPlayer.stop();
+  }
+}
+```
+
+当我们要在另一个 activity 中做同样的事情时，我们不得不把这些逻辑再写一遍，分散在各个生命周期函数中。
+
+能不能把这些跟生命周期绑定的逻辑抽出来，集中写到一个地方呢，比如一个 class 里。之后任何 activity 里想用的时候，只要 new 一个对象即行了？
+
+Android Lifecycle 就是用来干这个的，它达到了和 react hooks 相似的结果，即可以将和生命周期相关的逻辑抽取出来写到一个地方，集中管理，也很好在各 activity 中复用。
+
+而它实现的方法是监听器。(观察者模式，观察者模式可以解耦，实现控制反转？)
+
+实现如下：
+
+```java
+public class MyLocationObserver implements LifecycleObserver {
+  private MyLocationListener myLocationListener = new MyLocationListener(...);
+
+  @OnLifecycleEvent(Lifecycle.Event.ON_START)
+  public void onStart() {
+    myLocationListener.start()
+  }
+
+  @OnLifecycleEvent(Lifecycle.Event.ON_RESUME)
+  public void onResume() {
+    //...
+  }
+
+  @OnLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+  public void onPause() {
+    //...
+  }
+
+  @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+  public void onStop() {
+    myLocationListener.stop()
+  }
+}
+```
+
+咋一看，这代码和前面没区别呀。其实是有的，前者是在每个生命周期里都操作多个对象，但后者是管理一个对象的所有生命周期。
+
+这样，我只要在需要用到 MyLocationListener 的 activity 里 new 一个 MyLocationObserver 就够了。
+
+伪代码如下所示 (太久没写 Android 了，实际可能稍微复杂一点点):
+
+```java
+class MyActivity extends AppCompatActivity {
+  private MyLocationObserver myLocationObserver = new MyLocationObserver();
+  // 其它对象
+  private MusicPlayerObserver musicPlayerObserver = new MusicPlayerObserver();
+}
+```
+
+MyLocationObserver 在内部管理了所有生命周期。是不是很类似 React 中的一个自定义 hooks 呢？
+
+### 从 React Hooks 得到的启发
+
+从 React Hooks 得到的启发之一：相同功能的东西 (比如代码) 放在一起，而不是相同类型的放到一起。
+
+对于 class 组件来说，我们在一个生命周期执行多个不同的操作，比如：
+
+```js
+componentDidMount() {
+  // action 1
+  ChatAPI.subscribe(...)
+
+  // action 2
+  musicPlayer.start()
+}
+
+componentWillUnmount() {
+  ChatAPI.unsubscribe(...)
+
+  musicPlayer.stop()
+}
+```
+
+这相当于是把不同的功能的相同生命周期函数放在了一起。缺点前面说了，不好复用。
+
+而对于 react hooks 来说，则是把同一个功能的所有生命周期放在一起管理。实现了极好的复用。
+
+再举个例子。在一个前端项目中，我们可能会把代码划分成 service, model, action, reducer 等不同的类型，同时有多个功能，每个功能都有各自的 service / model / action / reducer。
+
+一种组织代码的方式是：顶层是 service / model / action / reducer，然后把所有功能的 service 代码都放在 service 中，把所有功能的 model 都放在 model 目录中 ... 像下面这样：
+
+```
+- service
+  - fun_a
+    - fun_a_service_1
+    - fun_a_service_2
+  - fun_b
+    - fun_b_service_1
+    - fun_b_service_2
+- model
+  - fun_a
+    - fun_a_model_1
+    - fun_a_model_2
+- ...
+```
+
+另一种组织代码的方式是：按功能划分，顶层是各个功能目录，然后在每个功能目录下，都有自己独立的 service/model/action/reducer。
+
+```
+- fun_a
+  - service
+    - fun_a_service_1
+    - fun_a_service_2
+  - model
+    - fun_a_model_1
+    - fun_a_model_2
+  - ...
+- fun_b
+  - service
+    - fun_b_service_1
+    - fun_b_service_2
+  - model
+    - fun_b_model_1
+    - fun_b_model_2
+  - ...
+- ...
+```
+
+后者有一个好处，当不需要某个功能时，直接把这个功能模块整个目录删掉就好了，而前者需要去每个目录删点东西。
+
+修改某个功能时，前者需要去每个目录改点东西，而后者只会影响功能模块内部目录。
+
+总来的说，后者更能体现模块性和独立性。
+
+也能影响到我们平时其它地方，比如文档的目录结构。是按 notes/codes/images 划分，还是按 react/vue/angular 这样划分。
+
+```
+- notes
+  - react.md
+  - vue.md
+  - angular.md
+- codes
+  - react
+  - vue
+  - angular
+```
+
+或是：
+
+```
+- react
+  - note.md
+  - codes
+- vue
+  - note.md
+  - codes
+```
+
+一个实际案例：
+
+![folders](./folders.png)
+
+每个功能模块下都有自己的 pages / components / utils。
+
+按功能模块划分，而不按类型划分。
