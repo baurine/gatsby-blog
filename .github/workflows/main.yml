@@ -1,0 +1,32 @@
+name: Build and publish blog
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+          
+      - name: Install yarn and build blog
+        run: |
+          npm install -g yarn
+          yarn && yarn build
+          
+      - uses: burnett01/rsync-deployments@4.1
+        with:
+          switches: -avzr --delete
+          path: public/
+          remote_path: ${{ secrets.DEPLOY_PATH  }}
+          remote_host: ${{ secrets.DEPLOY_HOST  }}
+          remote_user: ${{ secrets.DEPLOY_USER  }}
+          remote_key: ${{ secrets.SSH_KEY }}
