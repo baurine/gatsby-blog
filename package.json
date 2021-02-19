@@ -8,6 +8,9 @@
     "build": "gatsby build",
     "serve": "gatsby serve"
   },
+  "engines": {
+    "node": ">=14"
+  },
   "dependencies": {
     "gatsby": "^2.0.33",
     "gatsby-plugin-google-analytics": "^2.1.0",
