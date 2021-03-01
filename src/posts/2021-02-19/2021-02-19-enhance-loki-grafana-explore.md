@@ -4,7 +4,7 @@ date: '2021-02-19'
 tags: [grafana explore, data source, plugin, loki]
 ---
 
-> 文中截图皆来自 dev 环境，日志已脱敏。
+> 文中截图皆来自 dev 环境，且日志已脱敏。
 
 ## 背景介绍
 
@@ -182,6 +182,8 @@ export interface MyQuery extends DataQuery {
 但是，我们不能 hard code，而且 data source 的 name 也是可以被修改的。所以问题转换成，怎么动态拿到 Loki data source 的 name 呢？
 
 这个问题，我们可以通过 ConfigEditor 来解决。我们让用户在添加该 data source，指定所要使用的 Loki data source，我们记下它的 uid (data source 的 name 可以修改，但 uid 不会变)，这个值会被 Grafana 持久化。之后我们再用 uid 获取对应 data source 的 name，再通过 name 来获取 data source 的实例。(疑惑，为啥 Grafana 没有提供通过 uid 直接拿到 data source 实例的方法呢？)
+
+> Update: 在生产环境上布署时发现，生产环境里的 datasource 是提前写在 json 配置文件里的，一切信息在运行时不可修改，包括 name；而且 uid 是运行时才产生的，无法提前指定。所以最终实现还是使用了不可修改的 name 而非 uid。
 
 另外，我们后面还需要获取 Prometheus data source 的实例，所以，我们在 ConfigEditor 中也让用户指定 Prometheus data source。
 
