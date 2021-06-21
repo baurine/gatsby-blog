@@ -14,7 +14,7 @@ Go 1.16 之前，我们需要使用第三方工具来帮我们把这些 assets �
 
 另外，我们只有在最终发布的时候才需要将前端编译生成的 html/js/css 这些 assets 嵌入到 go 代码中，开发的时候并不需要，不然每修改一次就要重新编译打包一次那就太麻烦了。使用 go 的条件编译可以在开发和生产模式上编译打包不同的文件，后面会详述。
 
-我们先来看 vfsgen 的使用，然后再把它转换成使用 go 原生的 embed，进行一下对比。
+我们先来看 vfsgen 的使用，然后再把它转换成使用 go 自带的 embed，可以进行一下对比。
 
 ## 使用 vfsgen
 
@@ -76,7 +76,7 @@ run:
 
 为了节省时间，直接从 https://github.com/baurine/try-vite/tree/main/vite-tailwind 拷贝一个前端项目。这是一个用 vite 创建的 react 前端项目，使用了 tailwind css 框架，不过这不重要，只是随手拿来用的。
 
-进入 ui 目录执行 `yarn && yarn dev` 就可以把前端项目跑起来了，这个前端 demo 有三个简单的页面，相互间可以跳转。(有一点要注意，路由要使用 HashRouter，而不要使用 BrowserRouter)。
+进入 ui 目录执行 `yarn && yarn dev` 就可以把前端项目跑起来了，这个前端 demo 有三个简单的页面，相互间可以跳转。(注意路由使用 HashRouter，不要使用 BrowserRouter，对于前后端分离项目使用 BrowserRouter 很麻烦)。
 
 AntdPage 这个页面上有个 button，我们添加点击后去访问后端的 /api/v1/ping 接口，并将结果 alert 的逻辑。
 
@@ -117,7 +117,7 @@ export default function AntdPage() {
 }
 ```
 
-![](./demo-ping.png)
+![](./assets/demo-ping.png)
 
 这样 demo 就准备好了。
 
@@ -127,7 +127,7 @@ export default function AntdPage() {
 
 大致流程如下图所示。
 
-![](./vfsgen-embed.png)
+![](./assets/vfsgen-embed.png)
 
 在开发模式下，我们不需要在后端代码中嵌入前端代码，我们声明一个空的 ui assets，在头部用注释声明条件编译选项为 `// +build !ui_server`，如果编译命令中没有 `-tags ui_server` 选项，就会编译此文件；如果编译命令中包含 `-tags ui_server` 选项，则不会编译此文件。
 
@@ -309,9 +309,11 @@ export default defineConfig({
 <link rel="stylesheet" href="/demo/assets/index.42881954.css" />
 ```
 
+> 如果是一个 CRA 的前端项目，应该修改 package.json，加上 `"homepage": "/demo"` 选项。
+
 再次 `make embed_ui && UI=1 make && make run`，访问 localhost:8080 后，自动重定向到 localhost:8080/demo，可以正确加载前端页面。
 
-![](./demo-page.png)
+![](./assets/demo-page.png)
 
 ## 使用 go embed
 
