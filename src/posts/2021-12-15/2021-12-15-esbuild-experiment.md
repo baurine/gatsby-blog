@@ -312,7 +312,7 @@ esbuild 本身只能处理 js, css 等文件。我们项目中用到了 less, ya
 1. 无法编译 @fluentui/react 库的代码，这个库中的 .js 文件在加载样式时会 `import "../xxx.scss"` 文件，但实际 xxx.scss 不存在，而存在的是 xxx.scss.js 文件 (骚操作...)，esbuild 直接把这个 xxx.scss 交给 esbuild-plugin-postcss2 插件处理，显然将处理失败
 1. `import 'bulma/css/bulma.css'` 编译失败，提示找不到 bulma/css/bulma.css 这个文件，实际它好好地在那呢。
 
-后来经过阅读插件源码及调试，发现是插件内部 resolve imported file 的路径的逻辑有问题，已经反馈给上游并提交 PR，但上游没有响应，所以我只好自己 fork，自行修复并 publish。
+后来经过阅读插件源码及调试，发现是插件内部 resolve imported file 的路径的逻辑有问题，已经反馈给上游并提交 [PR](https://github.com/martonlederer/esbuild-plugin-postcss2/pull/32)，但上游没有响应，所以我只好自己 fork，自行修复并 publish。
 
 #### loader
 
@@ -491,4 +491,4 @@ cache.set(sourceFullPath, {
 
 加上缓存后，效果非常明显，增量编译时间从 4s 多降低到 600~700ms。
 
-相关 PR 也反馈给上游了，但上游没有响应，所以用了自己 fork 的插件版本。
+相关 [PR](https://github.com/martonlederer/esbuild-plugin-postcss2/pull/29) 也反馈给上游了，但上游没有响应，所以用了自己 fork 的插件版本。
